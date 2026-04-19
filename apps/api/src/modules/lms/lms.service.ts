@@ -316,7 +316,7 @@ export class LmsService {
       }
 
       return updatedGroup;
-    });
+    }, { timeout: 300000 });
   }
 
   async getTeachers(tenantId: string, branchId?: string) {
@@ -689,7 +689,7 @@ export class LmsService {
         }
       }
       return { success: true };
-    });
+    }, { timeout: 300000 });
   }
 
   private countSessions(startDate: Date, endDate: Date, scheduleDays: number[]): number {

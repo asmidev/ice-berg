@@ -10,10 +10,12 @@ export class DiscountsService {
     const studentDiscounts = await this.prisma.studentDiscount.findMany({
       where: {
         student: {
-          tenant_id: tenantId,
-          branch_id: branchId && branchId !== 'all' ? branchId : undefined,
-          status: 'ACTIVE',
-          is_archived: false,
+          is: {
+            tenant_id: tenantId,
+            branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+            status: 'ACTIVE',
+            is_archived: false,
+          }
         },
         OR: [
           { expires_at: null },
@@ -140,7 +142,9 @@ export class DiscountsService {
     const studentDiscounts = await this.prisma.studentDiscount.findMany({
       where: {
         student_id: studentId,
-        student: { tenant_id: tenantId },
+        student: {
+          is: { tenant_id: tenantId }
+        },
         OR: [
           { expires_at: null },
           { expires_at: { gt: now } }

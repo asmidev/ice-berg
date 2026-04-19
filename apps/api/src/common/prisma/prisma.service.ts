@@ -27,7 +27,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
             if (!tenantId) return query(args);
 
             // Models that do NOT have tenant_id
-            const excludedModels = ['Tenant', 'Role', 'Enrollment', 'Attendance', 'Schedule', 'Exam', 'Grade', 'Assignment', 'Submission'];
+            const excludedModels = ['Tenant', 'Role', 'Enrollment', 'Attendance', 'Schedule', 'Exam', 'Grade', 'Assignment', 'Submission', 'StudentDiscount', 'Transaction', 'TeacherPerformance', 'TeacherFeedback', 'CrmTask'];
             if (excludedModels.includes(model)) return query(args);
 
             if (['findFirst', 'findMany', 'count', 'update', 'updateMany', 'delete', 'deleteMany', 'aggregate', 'groupBy'].includes(operation)) {
