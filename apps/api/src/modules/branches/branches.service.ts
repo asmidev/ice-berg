@@ -35,12 +35,30 @@ export class BranchesService {
   }
 
   async createBranch(tenantId: string, data: { name: string, address?: string }) {
-    return this.prisma.branch.create({
+    const branch = await this.prisma.branch.create({
       data: {
         ...data,
         tenant_id: tenantId
       }
     });
+
+    // Yangi filial yaratilganda unga avtomatik kassa yaratish, nomi filial nomi bilan bir xil
+    try {
+      await this.prisma.cashbox.create({
+        data: {
+          tenant_id: tenantId,
+          branch_id: branch.id,
+          name: branch.name,  // <-- O'zgarish shu yerda
+          type: 'PHYSICAL',
+          balance: 0,
+          balance_other: 0
+        }
+      });
+    } catch (e) {
+      console.error("Cashbox auto-create error:", e);
+    }
+
+    return branch;
   }
 
   async updateBranch(tenantId: string, id: string, data: { name?: string, address?: string, settings?: any }) {

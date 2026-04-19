@@ -1,35 +1,76 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
+import { DiscountsService } from '../discounts/discounts.service';
 
 @Injectable()
 export class FinanceService {
   constructor(
     private prisma: PrismaService,
-    private smsService: SmsService
+    private smsService: SmsService,
+    private discountsService: DiscountsService
   ) {}
 
   async getCashboxes(tenantId: string, branchId?: string) {
     const where: any = { tenant_id: tenantId };
-    if (branchId && branchId !== 'all') {
-      where.branch_id = branchId;
-    }
+    // Barcha kassalar ko'rinishi uchun branch olib tashlandi
+    // if (branchId && branchId !== 'all') {
+    //   where.branch_id = branchId;
+    // }
     return this.prisma.cashbox.findMany({
       where,
-      include: { branch: true }
+      include: { branch: true },
+      orderBy: { name: 'asc' }
     });
   }
 
   async getUnpaidInvoices(tenantId: string, studentId: string) {
-    return this.prisma.invoice.findMany({
+    const invoices = await this.prisma.invoice.findMany({
       where: { 
         tenant_id: tenantId, 
         student_id: studentId, 
         status: { in: ['UNPAID', 'PARTIAL'] } 
       },
       orderBy: { created_at: 'asc' },
-      include: { group: { select: { name: true } } }
+      include: { group: { select: { name: true, price: true } } }
     });
+
+    for (const inv of invoices) {
+       if (inv.type === 'COURSE' && inv.group) {
+          if (Number(inv.amount) === Number((inv.group as any).price)) {
+              const discounted = await this.discountsService.applyDiscounts(tenantId, studentId, Number((inv.group as any).price));
+              if (discounted < Number(inv.amount)) {
+                  const diff = Number(inv.amount) - discounted;
+                  await this.prisma.$transaction([
+                     this.prisma.invoice.update({
+                         where: { id: inv.id },
+                         data: { amount: discounted }
+                     }),
+                     this.prisma.student.update({
+                         where: { id: studentId },
+                         data: { course_balance: { decrement: diff }, balance: { decrement: diff } }
+                     })
+                  ]);
+                  inv.amount = discounted as any;
+              }
+          }
+       }
+    }
+
+    const now = new Date();
+    const discounts = await this.prisma.studentDiscount.findMany({
+      where: {
+        student_id: studentId,
+        student: { is: { tenant_id: tenantId } },
+        OR: [{ expires_at: null }, { expires_at: { gt: now } }]
+      },
+      include: { discount: true }
+    });
+
+    return {
+      data: invoices,
+      discounts
+    };
   }
 
   async processPayment(tenantId: string, data: any) {
@@ -576,7 +617,10 @@ export class FinanceService {
         include: { 
           user: true, 
           branch: true,
-          invoices: { where: { status: { in: ['UNPAID', 'PARTIAL'] } } },
+          invoices: { 
+             where: { status: { in: ['UNPAID', 'PARTIAL'] } },
+             include: { group: { select: { price: true } } }
+          },
           enrollments: {
             where: { status: 'ACTIVE' },
             include: {
@@ -593,6 +637,26 @@ export class FinanceService {
         orderBy: { joined_at: 'desc' }
       })
     ]);
+
+    // Asosiy jadval (table) dagi balans ham yangilanishi uchun shu yerni o'zida chegirma hisobini tog'irlaymiz
+    for (const student of data) {
+        for (const inv of student.invoices) {
+            if (inv.type === 'COURSE' && (inv as any).group) {
+                const groupPrice = Number((inv as any).group.price);
+                if (Number(inv.amount) === groupPrice) {
+                    const discounted = await this.discountsService.applyDiscounts(tenantId, student.id, groupPrice);
+                    if (discounted < Number(inv.amount)) {
+                        const diff = Number(inv.amount) - discounted;
+                        await this.prisma.$transaction([
+                           this.prisma.invoice.update({ where: { id: inv.id }, data: { amount: discounted } }),
+                           this.prisma.student.update({ where: { id: student.id }, data: { course_balance: { decrement: diff }, balance: { decrement: diff } } })
+                        ]);
+                        inv.amount = discounted as any;
+                    }
+                }
+            }
+        }
+    }
 
     const debtAggregation = await this.prisma.invoice.aggregate({
         where: {

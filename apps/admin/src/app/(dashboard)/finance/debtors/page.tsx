@@ -90,6 +90,7 @@ export default function FinanceDebtorsPage() {
 
   const [unpaidInvoices, setUnpaidInvoices] = useState<any[]>([]);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [studentDiscounts, setStudentDiscounts] = useState<any[]>([]);
 
   const [smsForm, setSmsForm] = useState({
     templateId: '',
@@ -180,10 +181,12 @@ export default function FinanceDebtorsPage() {
     if (isPaymentModalOpen && selectedStudent) {
        api.get(`/finance/invoices/unpaid/${selectedStudent.id}`).then(res => {
           setUnpaidInvoices(res.data?.data || res.data || []);
+          setStudentDiscounts(res.data?.discounts || []);
        }).catch(err => console.error(err));
     } else {
        setUnpaidInvoices([]);
        setSelectedInvoices([]);
+       setStudentDiscounts([]);
     }
   }, [isPaymentModalOpen, selectedStudent]);
 
@@ -607,6 +610,14 @@ export default function FinanceDebtorsPage() {
                          {unpaidInvoices.filter(i => selectedInvoices.includes(i.id)).reduce((sum, inv) => sum + (Number(inv.amount) - Number(inv.paid_amount)), 0).toLocaleString()} so'm
                       </span>
                    </div>
+                   {studentDiscounts.length > 0 && (
+                      <div className="flex gap-2 items-center px-1 mt-2 p-2 bg-emerald-50 rounded-xl">
+                         <Sparkles className="w-4 h-4 text-emerald-500" />
+                         <span className="text-[12px] font-bold text-emerald-600">
+                             Talabaga chegirma qo'llanilgan ({studentDiscounts.map(sd => sd.discount?.name).join(', ')})!
+                         </span>
+                      </div>
+                   )}
                 </div>
                <div className="space-y-1.5">
                   <Label className="text-[11px] font-bold text-zinc-400 uppercase ml-1">Kassa</Label>
