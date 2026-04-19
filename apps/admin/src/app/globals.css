@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* === RANG TIZIMI === */
+    --pink-500: #ec4899;
+    --pink-400: #f472b6;
+    --pink-100: #fce7f3;
+    --pink-50: #fdf2f8;
+
+    --indigo-600: #4f46e5;
+    --indigo-500: #6366f1;
+    --cyan-500: #06b6d4;
+    --navy-800: #1e3a5f;
+
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+
+    --gray-900: #111827;
+    --gray-700: #374151;
+    --gray-600: #4b5563;
+    --gray-500: #6b7280;
+    --gray-400: #9ca3af;
+    --gray-200: #e5e7eb;
+    --gray-100: #f3f4f6;
+    --gray-50: #f9fafb;
+
+    /* === SURFACELAR === */
+    --background: #f9fafb;
+    --foreground: #111827;
+    --bg-page: #f9fafb;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    --border: #e5e7eb;
+
+    /* === SPACING & RADIUS === */
+    --radius-xs: 10px;
+    --radius-sm: 10px;
+    --radius-md: 10px;
+    --radius-lg: 10px;
+    --radius-xl: 10px;
+    --radius-full: 9999px;
+
+    /* === SHADOWS === */
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.18);
+    --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+}
+
+body {
+  color: var(--gray-600);
+  background: var(--bg-page);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  input, select, textarea {
+    background-color: #ffffff !important;
+    color: var(--gray-900) !important;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+  }
+  
+  ::placeholder {
+    color: var(--gray-400) !important;
+  }
+}
+
+/* === CUSTOM SCROLLBAR === */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--gray-200);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-300);
+}
+
+/* === GRADIENT UTILITIES === */
+.grad-pink { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); }
+.grad-cyan { background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%); }
+.grad-navy { background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); }
+.grad-purple { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+

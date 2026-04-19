@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    image: edutizim/api:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - NODE_ENV=production
+    depends_on:
+      - redis
+    networks:
+      - edutizim-prod
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - edutizim-prod
+
+networks:
+  edutizim-prod:
+    driver: bridge
+
+volumes:
+  redis_prod_data:
