@@ -582,6 +582,15 @@ export default function FinanceDebtorsPage() {
                          unpaidInvoices.map(inv => {
                             const leftToPay = Number(inv.amount) - Number(inv.paid_amount);
                             const isChecked = selectedInvoices.includes(inv.id);
+                            
+                            let labelContent = inv.month;
+                            if (inv.type === 'COURSE' && inv.group?.start_date && inv.group?.end_date) {
+                              const sd = new Date(inv.group.start_date).toLocaleDateString('uz-UZ');
+                              const ed = new Date(inv.group.end_date).toLocaleDateString('uz-UZ');
+                              const td = new Date().toLocaleDateString('uz-UZ');
+                              labelContent = `${sd} dan ${ed} gacha (To'lov: ${td})`;
+                            }
+
                             return (
                                <label key={inv.id} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border ${isChecked ? 'bg-white border-[#17c1e8] shadow-sm' : 'bg-transparent border-zinc-200 hover:border-zinc-300'}`}>
                                   <input 
@@ -594,7 +603,8 @@ export default function FinanceDebtorsPage() {
                                      className="rounded text-[#17c1e8] focus:ring-[#17c1e8]"
                                   />
                                   <div className="flex-1 flex flex-col">
-                                     <span className="text-[13px] font-bold text-zinc-700">{inv.month} ({inv.type === 'COURSE' ? 'Kurs' : inv.type})</span>
+                                     <span className="text-[13px] font-bold text-zinc-700">{labelContent}</span>
+                                     <span className="text-[11px] font-medium text-zinc-400 mt-0.5">{inv.type === 'COURSE' ? 'Kurs u.n' : inv.type}</span>
                                   </div>
                                   <span className="text-[14px] font-black text-rose-500">{leftToPay.toLocaleString()}</span>
                                </label>

@@ -52,11 +52,7 @@ export default function StaffAttendancePage() {
     try {
       const formattedDate = format(date, 'yyyy-MM-dd');
       
-      const [listRes, statsRes] = await Promise.all([
-        api.get(`/staff-attendance/list?type=${activeTab}&branch_id=${branchId}&date=${formattedDate}`),
-        api.get(`/staff-attendance/stats?branch_id=${branchId}&date=${formattedDate}`)
-      ]);
-
+      const listRes = await api.get(`/staff-attendance/list?type=${activeTab}&branch_id=${branchId}&date=${formattedDate}`);
       const list = Array.isArray(listRes.data) ? listRes.data : (listRes.data?.data || []);
 
       if (activeTab === 'staff') {
@@ -71,12 +67,15 @@ export default function StaffAttendancePage() {
         }
       }
 
-      const s = statsRes.data?.[activeTab === 'staff' ? 'staff' : 'teachers'];
+      const presentCount = list.filter((i: any) => i.attendance?.status === 'PRESENT').length;
+      const absentCount = list.filter((i: any) => i.attendance?.status === 'ABSENT').length;
+      const lateCount = list.filter((i: any) => i.attendance?.status === 'LATE').length;
+
       const summary = {
         total: list.length,
-        present: s?.find((i: any) => i.status === 'PRESENT')?._count || 0,
-        absent: s?.find((i: any) => i.status === 'ABSENT')?._count || 0,
-        late: s?.find((i: any) => i.status === 'LATE')?._count || 0,
+        present: presentCount,
+        absent: absentCount,
+        late: lateCount,
       };
       setStats(summary);
     } catch (err) {

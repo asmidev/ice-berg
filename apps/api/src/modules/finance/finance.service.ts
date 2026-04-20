@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
 import { DiscountsService } from '../discounts/discounts.service';
@@ -32,7 +33,7 @@ export class FinanceService {
         status: { in: ['UNPAID', 'PARTIAL'] } 
       },
       orderBy: { created_at: 'asc' },
-      include: { group: { select: { name: true, price: true } } }
+      include: { group: { select: { name: true, price: true, start_date: true, end_date: true } } }
     });
 
     for (const inv of invoices) {
@@ -74,6 +75,9 @@ export class FinanceService {
   }
 
   async processPayment(tenantId: string, data: any) {
+    if (data.type) data.type = data.type.toUpperCase();
+    if (data.payment_method) data.payment_method = data.payment_method.toUpperCase();
+
     return this.prisma.$transaction(async (tx) => {
       // --- Multiple Invoices Payment Logic ---
       if (data.invoice_ids && data.invoice_ids.length > 0) {
@@ -2140,5 +2144,109 @@ export class FinanceService {
       recent,
       older: totalArchive - recent
     };
+  }
+
+  private readonly logger = new Logger(FinanceService.name);
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleGroupEndDates() {
+    this.logger.log('Ishga tushirildi: Guruh yopilishi va Oyliklarni hisoblash Cron servisi.');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    try {
+        const groups = await this.prisma.group.findMany({
+            where: {
+               status: 'ACTIVE',
+               end_date: { not: null, lte: today },
+               is_archived: false,
+            },
+            include: {
+               teacher: true,
+               support_teacher: true,
+               enrollments: { include: { student: true } }
+            }
+        });
+
+        for (const group of groups) {
+            try {
+               await this.processEndTermPayroll(group);
+               await this.prisma.group.update({
+                  where: { id: group.id },
+                  data: { status: 'COMPLETED', is_archived: true }
+               });
+               this.logger.log(`Guruh muvaffaqiyatli yopildi: ${group.name} (${group.id})`);
+            } catch (err: any) {
+               this.logger.error(`Guruhni yopishda daxshatli xato ${group.id}: ${err.message}`);
+            }
+        }
+    } catch(err) {
+        this.logger.error('CRON JOB FAILED', err);
+    }
+  }
+
+  private async processEndTermPayroll(group: any) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: { group_id: group.id, type: 'COURSE' }
+    });
+    
+    const invoicedRevenue = invoices.reduce((acc, inv) => acc + Number(inv.amount), 0);
+    
+    // Virtual sum for VIP
+    const basePrice = Number(group.price) || 0;
+    const activeEnrollments = group.enrollments.filter((e: any) => e.status === 'ACTIVE');
+    const vipStudents = activeEnrollments.filter((e: any) => e.student?.is_vip);
+    const vipShadowRevenue = vipStudents.length * basePrice;
+
+    const shadowRevenue = invoicedRevenue + vipShadowRevenue;
+
+    const calculateAmount = (type: string, value: number, base: number) => {
+        if (type === 'PERCENT_REVENUE' || type === 'PERCENTAGE') return (base * value) / 100;
+        if (type === 'FIXED') return value;
+        return 0;
+    };
+
+    let mainTeacherAmount = 0;
+    if (group.teacher) {
+        const type = group.teacher.salary_type || 'FIXED';
+        const val = Number(group.teacher.salary_amount) || 0;
+        mainTeacherAmount = calculateAmount(type, val, shadowRevenue);
+    }
+
+    let supportTeacherAmount = 0;
+    if (group.support_teacher_id && group.support_teacher) {
+        const type = group.support_teacher.salary_type || 'FIXED';
+        const val = Number(group.support_teacher.salary_amount) || 0;
+        supportTeacherAmount = calculateAmount(type, val, shadowRevenue);
+    }
+
+    const periodStr = `${group.name} - Yopilish (${new Date().toLocaleDateString('uz-UZ')})`;
+
+    if (mainTeacherAmount > 0 && group.teacher_id) {
+        await this.prisma.payroll.create({
+            data: {
+               tenant_id: group.tenant_id,
+               branch_id: group.branch_id,
+               teacher_id: group.teacher_id,
+               amount: mainTeacherAmount,
+               period: periodStr,
+               status: 'PENDING',
+               group_id: group.id
+            }
+        });
+    }
+
+    if (supportTeacherAmount > 0 && group.support_teacher_id) {
+        await this.prisma.payroll.create({
+            data: {
+               tenant_id: group.tenant_id,
+               branch_id: group.branch_id,
+               teacher_id: group.support_teacher_id,
+               amount: supportTeacherAmount,
+               period: periodStr,
+               status: 'PENDING',
+               group_id: group.id
+            }
+        });
+    }
   }
 }

@@ -8,8 +8,13 @@ import { CheckCircle2, XCircle, Clock, Search, MoreHorizontal, User } from "luci
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
 
-const getAvatarUrl = (name: string) => {
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
 };
 
 interface AttendanceTableProps {
@@ -114,11 +119,11 @@ export function AttendanceTableVIP({ data = [], loading, onMark, type, onRowClic
                     >
                     <TableCell className="pl-8 py-5">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center text-2xl shadow-sm group-hover:bg-white group-hover:border-zinc-300 transition-all duration-300">
+                        <div className="w-12 h-12 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center text-2xl shadow-sm group-hover:bg-white group-hover:border-zinc-300 transition-all duration-300 overflow-hidden">
                           {item.photo_url ? (
-                            <img src={item.photo_url} alt="" className="w-full h-full object-cover rounded-2xl" />
+                            <img src={item.photo_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <img src={getAvatarUrl(item.name)} alt="" className="w-full h-full object-contain p-1" />
+                            <span className="font-black text-[18px] text-zinc-400 select-none">{getInitials(item.name)}</span>
                           )}
                         </div>
                         <div className="flex flex-col gap-0.5">

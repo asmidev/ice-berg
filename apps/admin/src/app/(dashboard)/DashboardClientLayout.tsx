@@ -474,13 +474,15 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 			{/* 🚀 SIDEBAR */}
 			<aside className='w-[220px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col z-20'>
 				{/* Brand/Logo */}
-				<div className='h-24 border-b border-gray-100 flex-shrink-0'>
+				<div className='h-24 border-b border-gray-100 flex-shrink-0 overflow-hidden'>
 					<Link href='/' className='w-full h-full group block'>
-						<div className='w-full h-full flex items-center justify-center bg-slate-900 transition-all hover:bg-slate-800 overflow-hidden'>
+						<div className='w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] transition-all overflow-hidden relative'>
+							<div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl pointer-events-none" />
+							<div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 							<img
 								src='/Frame 344.png'
 								alt='logo'
-								className='w-full h-auto max-h-16 px-6 object-contain'
+								className='w-full h-auto max-h-24 px-2 translate-x-[5px] scale-[1.2] object-contain relative z-10 drop-shadow-lg group-hover:scale-[1.25] transition-transform duration-500'
 							/>
 						</div>
 					</Link>

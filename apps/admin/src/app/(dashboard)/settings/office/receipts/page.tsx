@@ -344,8 +344,7 @@ export default function OfficeReceiptsSettingsPage() {
                
                <div className="w-full border-t border-dashed border-gray-300 pt-4 mb-4 space-y-1">
                   <div className="flex justify-between uppercase font-bold"><span>Kurs:</span> <span>Ingliz Tili (IELTS)</span></div>
-                  <div className="flex justify-between uppercase"><span>Bosqich:</span> <span>4-etap</span></div>
-                  <div className="flex justify-between uppercase"><span>Oy:</span> <span>Sentyabr 2026</span></div>
+                  <div className="flex justify-between uppercase"><span>Davri:</span> <span className="text-[10px]">10.09.2026 - 10.10.2026</span></div>
                   <div className="w-full border-t border-gray-100 my-2" />
                   <div className="flex justify-between uppercase"><span>Chek kodi:</span> <span className="font-black">#882734</span></div>
                   <div className="flex justify-between uppercase"><span>Sana:</span> <span>{new Date().toLocaleDateString()}</span></div>
@@ -367,11 +366,6 @@ export default function OfficeReceiptsSettingsPage() {
                      <p className="text-[10px] text-gray-500 whitespace-pre-wrap leading-relaxed font-bold">
                         {settings.receipt_footer}
                      </p>
-                  </div>
-
-                  <div className="pt-4 flex flex-col items-center opacity-40 grayscale">
-                     <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center font-sans text-[10px] font-black border border-gray-300">QR CODE</div>
-                     <p className="text-[8px] mt-2 font-black">SCANNED BY ICE BERG SYSTEM</p>
                   </div>
                </div>
 

@@ -28,6 +28,7 @@ export class StaffAttendanceService {
       name: `${s.user.first_name} ${s.user.last_name}`,
       phone: s.user.phone,
       position: s.position,
+      photo_url: s.user.photo_url,
       attendance: s.attendances[0] || null
     }));
   }
@@ -106,6 +107,7 @@ export class StaffAttendanceService {
         name: `${t.user.first_name} ${t.user.last_name}`,
         phone: t.user.phone,
         specialization: t.specialization,
+        photo_url: t.user.photo_url,
         lessons_count: t.taughtGroups.reduce((acc, g) => acc + g.schedules.length, 0),
         attendance: todayAttendance ? {
           ...todayAttendance,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,10 @@ export default function FinancePaymentsPage() {
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [archiveForm, setArchiveForm] = useState({ id: '', reason: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [printPayment, setPrintPayment] = useState<any>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({ contentRef: printRef });
+  const [branchSettings, setBranchSettings] = useState<any>({});
 
   useEffect(() => {
     const bId = (typeof window !== 'undefined' ? localStorage.getItem('branch_id') : null) || 'all';
@@ -74,6 +79,11 @@ export default function FinancePaymentsPage() {
       setStaff(staffRes.data?.data || staffRes.data || []);
       setGroups(groupsRes.data?.data || groupsRes.data || []);
       setGateways(branchRes.data?.settings?.gateways || {});
+      setBranchSettings(branchRes.data?.settings || {
+        receipt_branch_name: branchRes.data?.name || '',
+        receipt_header: '⭐⭐⭐ ICE BERG ⭐⭐⭐',
+        receipt_footer: 'Bizni tanlaganingiz uchun tashakkur!\nIjtimoiy tarmoqlar: @ice_berg_edu',
+      });
     } catch (err) {
       console.error('Fetch Error', err);
     } finally {
@@ -371,7 +381,7 @@ export default function FinancePaymentsPage() {
                            </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[160px] p-2 rounded-[12px] border-gray-200 shadow-dropdown bg-white" align="end">
-                           <button className="w-full h-[36px] px-3 flex items-center gap-2 text-gray-700 font-medium text-[13px] hover:bg-gray-50 rounded-[6px] transition-colors">
+                           <button onClick={() => setPrintPayment(pmt)} className="w-full h-[36px] px-3 flex items-center gap-2 text-gray-700 font-medium text-[13px] hover:bg-gray-50 rounded-[6px] transition-colors">
                               <Printer className="w-[16px] h-[16px]" /> Chop etish
                            </button>
                            <button onClick={() => { setArchiveForm({ id: pmt.id, reason: '' }); setIsArchiveDialogOpen(true); }} className="w-full h-[36px] px-3 flex items-center gap-2 text-red-500 font-medium text-[13px] hover:bg-red-50 rounded-[6px] transition-colors mt-1">
@@ -427,6 +437,64 @@ export default function FinancePaymentsPage() {
                {submitting ? "Kutilmoqda..." : "Ha, arxivlash"}
              </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- RECEIPT MODAL --- */}
+      <Dialog open={!!printPayment} onOpenChange={o => !o && setPrintPayment(null)}>
+        <DialogContent className="sm:max-w-[420px] rounded-[16px] p-6 border-none shadow-modal bg-white flex flex-col items-center">
+            <DialogHeader className="w-full mb-4">
+              <DialogTitle className="text-center text-xl font-bold">To'lov cheki</DialogTitle>
+            </DialogHeader>
+
+            <div className="w-full overflow-hidden border border-gray-200 shadow-sm rounded-lg relative flex flex-col items-center p-4">
+                <div ref={printRef} className="w-[300px] p-4 bg-white text-black font-mono text-[11px] leading-snug">
+                   <p className="text-sm font-black text-center mb-1">{branchSettings?.receipt_header || '⭐⭐⭐ ICE BERG ⭐⭐⭐'}</p>
+                   <p className="text-[10px] font-bold uppercase text-center mb-4 text-gray-500">{branchSettings?.receipt_branch_name || printPayment?.branch?.name || 'ICE BERG FILIALI'}</p>
+                   
+                   <div className="w-full border-t border-dashed border-gray-400 pt-3 mb-3 space-y-1">
+                      <div className="flex justify-between uppercase font-bold"><span>Kurs:</span> <span>{printPayment?.group?.course?.name || printPayment?.group?.name || 'KURS'}</span></div>
+                      
+                      {printPayment?.group?.start_date && printPayment?.group?.end_date ? (
+                          <div className="flex justify-between uppercase"><span>Davri:</span> <span className="text-[10px]">{new Date(printPayment.group.start_date).toLocaleDateString('uz-UZ')} - {new Date(printPayment.group.end_date).toLocaleDateString('uz-UZ')}</span></div>
+                      ) : printPayment?.paid_for_month ? (
+                          <div className="flex justify-between uppercase"><span>Oy:</span> <span className="text-[10px]">{printPayment.paid_for_month}</span></div>
+                      ) : (
+                          <div className="flex justify-between uppercase"><span>Davri:</span> <span className="text-[10px]">To'liq</span></div>
+                      )}
+                      
+                      <div className="w-full border-t border-gray-200 my-1" />
+                      <div className="flex justify-between uppercase"><span>Chek kodi:</span> <span className="font-black">#{printPayment?.id?.split('-')[0].toUpperCase()}</span></div>
+                      <div className="flex justify-between uppercase"><span>Sana:</span> <span>{new Date(printPayment?.created_at || Date.now()).toLocaleDateString('uz-UZ')}</span></div>
+                      <div className="flex justify-between uppercase"><span>Mijoz:</span> <span>{printPayment?.student?.user?.first_name} {printPayment?.student?.user?.last_name}</span></div>
+                      <div className="flex justify-between uppercase"><span>Kassir:</span> <span>{printPayment?.cashier?.first_name || 'Admin'}</span></div>
+                   </div>
+                   
+                   <div className="w-full text-left mb-1">
+                      <p className="font-black uppercase tracking-wider underline underline-offset-2">To'lov ma'lumoti</p>
+                   </div>
+                   
+                   <div className="w-full space-y-3">
+                      <div className="flex justify-between items-center text-[12px] font-black">
+                         <span className="uppercase">Jami to'lov:</span>
+                         <span className="text-base">{new Intl.NumberFormat('uz-UZ').format(printPayment?.amount || 0)} UZS</span>
+                      </div>
+                      
+                      <div className="w-full border-t border-dashed border-gray-400 pt-3 text-center">
+                         <p className="text-[10px] whitespace-pre-wrap leading-relaxed font-bold text-gray-500">
+                            {branchSettings?.receipt_footer || 'Bizni tanlaganingiz uchun tashakkur!'}
+                         </p>
+                      </div>
+                   </div>
+                </div>
+            </div>
+
+            <DialogFooter className="mt-6 w-full flex gap-3 sm:justify-center">
+              <Button variant="outline" onClick={() => setPrintPayment(null)} className="flex-1 rounded-[8px] font-medium border-gray-200">Yopish</Button>
+              <Button onClick={() => handlePrint()} className="flex-1 rounded-[8px] font-medium bg-[#1E3A5F] text-white hover:bg-navy-900 border-none">
+                 <Printer className="w-4 h-4 mr-2" /> Chop etish
+              </Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
