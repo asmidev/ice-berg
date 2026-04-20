@@ -1203,9 +1203,10 @@ export class FinanceService {
 
       // 3. Update Cashbox Balance (Decrement - Refund)
       if (payment.cashbox_id) {
+        const isCash = payment.type === 'CASH';
         await tx.cashbox.update({
           where: { id: payment.cashbox_id },
-          data: { balance: { decrement: payment.amount } },
+          data: { [isCash ? 'balance' : 'balance_other']: { decrement: payment.amount } },
         });
       }
 
@@ -1234,11 +1235,57 @@ export class FinanceService {
 
       // 3. Update Cashbox Balance (Increment)
       if (payment.cashbox_id) {
+        const isCash = payment.type === 'CASH';
         await tx.cashbox.update({
           where: { id: payment.cashbox_id },
-          data: { balance: { increment: payment.amount } },
+          data: { [isCash ? 'balance' : 'balance_other']: { increment: payment.amount } },
         });
       }
+
+      return updated;
+    });
+  }
+
+  async changePaymentMethod(tenantId: string, id: string, newType: string, reason?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { id, tenant_id: tenantId },
+      });
+
+      if (!payment) throw new Error('Payment not found');
+      if (payment.is_archived) throw new Error('Arxivlangan to\'lovning turini o\'zgartirib bo\'lmaydi');
+      if (payment.type === newType) return payment;
+
+      // Update Cashbox Balances
+      if (payment.cashbox_id) {
+        const oldIsCash = payment.type === 'CASH';
+        const newIsCash = newType === 'CASH';
+
+        // Decrement from old
+        await tx.cashbox.update({
+          where: { id: payment.cashbox_id },
+          data: { [oldIsCash ? 'balance' : 'balance_other']: { decrement: payment.amount } },
+        });
+
+        // Increment to new
+        await tx.cashbox.update({
+          where: { id: payment.cashbox_id },
+          data: { [newIsCash ? 'balance' : 'balance_other']: { increment: payment.amount } },
+        });
+      }
+
+      // Append reason to description if provided
+      const newDescription = reason 
+        ? `${payment.description || ''} | Turi o'zgardi (${payment.type} -> ${newType}): ${reason}`.replace(/^ \| /, '')
+        : payment.description;
+
+      const updated = await tx.payment.update({
+        where: { id, tenant_id: tenantId },
+        data: {
+          type: newType,
+          description: newDescription,
+        },
+      });
 
       return updated;
     });

@@ -42,6 +42,11 @@ export default function FinancePaymentsPage() {
   // Archive State
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [archiveForm, setArchiveForm] = useState({ id: '', reason: '' });
+  
+  // Change Method State
+  const [isChangeMethodModalOpen, setIsChangeMethodModalOpen] = useState(false);
+  const [changeMethodForm, setChangeMethodForm] = useState({ id: '', type: '', reason: '' });
+
   const [submitting, setSubmitting] = useState(false);
   const [printPayment, setPrintPayment] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -116,6 +121,24 @@ export default function FinancePaymentsPage() {
     } catch (err) {
       console.error(err);
       toast.error("Xatolik yuz berdi");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleChangeMethod = async () => {
+    if (!changeMethodForm.type) return toast.error("Turni tanlang");
+    setSubmitting(true);
+    try {
+      const type = changeMethodForm.type === 'cash' ? 'CASH' : changeMethodForm.type === 'card' ? 'CARD' : changeMethodForm.type;
+      await api.put(`/finance/payments/${changeMethodForm.id}/change-method`, { type: type, reason: changeMethodForm.reason });
+      setIsChangeMethodModalOpen(false);
+      setChangeMethodForm({ id: '', type: '', reason: '' });
+      fetchData();
+      toast.success("To'lov turi muvaffaqiyatli o'zgartirildi");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Xatolik yuz berdi");
     } finally {
       setSubmitting(false);
     }
@@ -384,6 +407,9 @@ export default function FinancePaymentsPage() {
                            <button onClick={() => setPrintPayment(pmt)} className="w-full h-[36px] px-3 flex items-center gap-2 text-gray-700 font-medium text-[13px] hover:bg-gray-50 rounded-[6px] transition-colors">
                               <Printer className="w-[16px] h-[16px]" /> Chop etish
                            </button>
+                           <button onClick={() => { setChangeMethodForm({ id: pmt.id, type: pmt.type === 'cash' ? 'CASH' : pmt.type === 'card' ? 'CARD' : pmt.type, reason: '' }); setIsChangeMethodModalOpen(true); }} className="w-full h-[36px] px-3 flex items-center gap-2 text-blue-500 font-medium text-[13px] hover:bg-blue-50 rounded-[6px] transition-colors mt-1">
+                              <Wallet className="w-[16px] h-[16px]" /> Turini o'zgartirish
+                           </button>
                            <button onClick={() => { setArchiveForm({ id: pmt.id, reason: '' }); setIsArchiveDialogOpen(true); }} className="w-full h-[36px] px-3 flex items-center gap-2 text-red-500 font-medium text-[13px] hover:bg-red-50 rounded-[6px] transition-colors mt-1">
                               <Archive className="w-[16px] h-[16px]" /> Arxivlash
                            </button>
@@ -435,6 +461,62 @@ export default function FinancePaymentsPage() {
                disabled={submitting}
              >
                {submitting ? "Kutilmoqda..." : "Ha, arxivlash"}
+             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- CHANGE METHOD MODAL --- */}
+      <Dialog open={isChangeMethodModalOpen} onOpenChange={setIsChangeMethodModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-[16px] p-6 border-none shadow-modal bg-white">
+          <DialogHeader className="space-y-4">
+             <div className="w-[48px] h-[48px] bg-blue-50 rounded-full flex items-center justify-center text-blue-500 mx-auto">
+                <Wallet className="w-[24px] h-[24px]" />
+             </div>
+             <DialogTitle className="text-[18px] font-semibold text-center text-gray-900">To'lov turini o'zgartirish</DialogTitle>
+             <DialogDescription className="text-[14px] text-center text-gray-500 leading-relaxed">
+               Ushbu amaliyot orqali siz to'lovni "Naqd" dan "Karta" ga yoki aksincha o'zgartirishingiz mumkin va tegishli pullar avtomatik kassa balansidan tranzaksiya qilinadi.
+             </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+             <div className="space-y-3">
+               <Label className="text-[13px] font-medium text-gray-700">Yangi to'lov turi <span className="text-red-500">*</span></Label>
+               <Select value={changeMethodForm.type} onValueChange={(val) => setChangeMethodForm({...changeMethodForm, type: val})}>
+                 <SelectTrigger className="h-[44px] rounded-[8px] bg-white border border-gray-200">
+                    <SelectValue placeholder="Turni tanlang" />
+                 </SelectTrigger>
+                 <SelectContent className="rounded-xl border-gray-100 shadow-dropdown z-50">
+                    <SelectItem value="CASH">Naqd pul</SelectItem>
+                    <SelectItem value="CARD">Plastik karta</SelectItem>
+                 </SelectContent>
+               </Select>
+             </div>
+             <div className="space-y-3">
+               <Label className="text-[13px] font-medium text-gray-700">Izoh (ixtiyoriy)</Label>
+               <Input 
+                 value={changeMethodForm.reason} 
+                 onChange={e => setChangeMethodForm({...changeMethodForm, reason: e.target.value})}
+                 placeholder="Masalan: Aslida karta orqali to'langan ekan..." 
+                 className="h-[44px] rounded-[8px] bg-white border border-gray-200 text-[14px] px-3 focus-visible:ring-1 focus-visible:ring-blue-500" 
+               />
+             </div>
+          </div>
+
+          <DialogFooter className="mt-2 flex gap-3 sm:justify-center w-full">
+             <Button 
+               variant="outline" 
+               className="h-[40px] flex-1 rounded-[8px] font-medium text-gray-700 border-gray-200 hover:bg-gray-50" 
+               onClick={() => setIsChangeMethodModalOpen(false)}
+             >
+               Bekor qilish
+             </Button>
+             <Button 
+               className="h-[40px] flex-1 rounded-[8px] font-medium bg-blue-500 hover:bg-blue-600 text-white border-none"
+               onClick={handleChangeMethod}
+               disabled={submitting}
+             >
+               {submitting ? "Saqlanmoqda..." : "Saqlash"}
              </Button>
           </DialogFooter>
         </DialogContent>

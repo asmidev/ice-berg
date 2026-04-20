@@ -144,6 +144,11 @@ export class FinanceController {
   }
 
   // Payments Archive Endpoints
+  @Put('payments/:id/change-method')
+  changePaymentMethod(@Req() req: any, @Param('id') id: string, @Body() data: { type: string, reason?: string }) {
+    return this.financeService.changePaymentMethod(req.user.tenantId, id, data.type, data.reason);
+  }
+
   @Post('payments/:id/archive')
   archivePayment(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
     return this.financeService.archivePayment(req.user.tenantId, id, reason);
