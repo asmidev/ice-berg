@@ -1864,7 +1864,9 @@ export class FinanceService {
       where: { id: groupId, tenant_id: tenantId },
       include: { 
         schedules: true,
-        enrollments: { where: { status: 'ACTIVE' }, include: { student: true } }
+        enrollments: { where: { status: 'ACTIVE' }, include: { student: true } },
+        teacher: true,
+        support_teacher: true
       }
     });
 
@@ -1916,31 +1918,33 @@ export class FinanceService {
       supportTeacherAmount = Number(group.support_salary_value) || 0;
     } else {
       const calculateAmount = (type: string, value: number, base: number) => {
-        if (type === 'PERCENT_REVENUE') return (base * value) / 100;
+        if (type === 'PERCENT_REVENUE' || type === 'PERCENTAGE') return (base * value) / 100;
         if (type === 'FIXED') return value;
         return 0;
       };
 
-      const totalMainPot = calculateAmount(group.teacher_salary_type, Number(group.teacher_salary_value), shadowRevenue);
-      const totalDaysPerWeek = (Number(group.main_teacher_days) || 0) + (group.support_teacher_id ? (Number(group.support_teacher_days) || 0) : 0);
-      
-      if (totalDaysPerWeek > 0) {
-         mainTeacherAmount = (totalMainPot * (Number(group.main_teacher_days) || 0)) / totalDaysPerWeek;
-      } else {
-         mainTeacherAmount = totalMainPot;
+      let mainType = 'FIXED';
+      let mainVal = 0;
+      if (group.teacher) {
+         mainType = group.teacher.salary_type || 'FIXED';
+         mainVal = Number(group.teacher.salary_amount) || 0;
       }
 
+      const totalMainPot = calculateAmount(mainType, mainVal, shadowRevenue);
+      const mainTeacherDays = group.schedules.length; // Approximate total days if needed, or stick to actual length! Wait, the original code used group.main_teacher_days which is removed!
+      
+      mainTeacherAmount = totalMainPot; // Since percentage handles revenue, and fixed handles fixed sum.
+
       if (group.support_teacher_id) {
-        // Support teacher might have its own type or share the logic
-        const supportSalaryType = group.support_salary_type || 'FIXED';
-        const supportSalaryValue = Number(group.support_salary_value) || 0;
+        let supportSalaryType = 'FIXED';
+        let supportSalaryValue = 0;
         
-        const totalSupportPot = calculateAmount(supportSalaryType, supportSalaryValue, shadowRevenue);
-        if (totalDaysPerWeek > 0 && supportSalaryType === 'PERCENT_REVENUE') {
-           supportTeacherAmount = (totalSupportPot * (Number(group.support_teacher_days) || 0)) / totalDaysPerWeek;
-        } else {
-           supportTeacherAmount = totalSupportPot;
+        if (group.support_teacher) {
+           supportSalaryType = group.support_teacher.salary_type || 'FIXED';
+           supportSalaryValue = Number(group.support_teacher.salary_amount) || 0;
         }
+
+        supportTeacherAmount = calculateAmount(supportSalaryType, supportSalaryValue, shadowRevenue);
       }
     }
 

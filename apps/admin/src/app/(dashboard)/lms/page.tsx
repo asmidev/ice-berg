@@ -51,13 +51,10 @@ export default function LmsDashboardPage() {
   
   const [groupData, setGroupData] = useState({
     id: '', name: '', courseId: '', price: '', capacity: 15,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: new Date().toISOString().split('T')[0], endDate: '',
     teacherId: '', supportTeacherId: 'none', roomId: '',
     selectedDays: [] as number[], startTime: '09:00', endTime: '11:00',
-    is_vip: false,
-    teacher_salary_type: 'PERCENT_REVENUE', teacher_salary_value: '',
-    support_salary_type: 'FIXED', support_salary_value: '',
-    main_teacher_days: 0, support_teacher_days: 0
+    is_vip: false
   });
 
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -138,6 +135,7 @@ export default function LmsDashboardPage() {
       const payload = {
         ...groupData,
         branch_id: branchId === 'all' ? null : branchId,
+        end_date: groupData.endDate || null,
         schedules: groupData.selectedDays.map(day => ({
           day_of_week: day,
           start_time: groupData.startTime,
@@ -259,13 +257,10 @@ export default function LmsDashboardPage() {
         onAddClick={() => {
            setGroupData({
              id: '', name: '', courseId: '', price: '', capacity: 15,
-             startDate: new Date().toISOString().split('T')[0],
+             startDate: new Date().toISOString().split('T')[0], endDate: '',
              teacherId: '', supportTeacherId: 'none', roomId: '',
              selectedDays: [], startTime: '09:00', endTime: '11:00',
-             is_vip: false,
-             teacher_salary_type: 'PERCENT_REVENUE', teacher_salary_value: '',
-             support_salary_type: 'FIXED', support_salary_value: '',
-             main_teacher_days: 0, support_teacher_days: 0
+             is_vip: false
            });
            setIsEditMode(false);
            setActiveModal('form');
@@ -281,16 +276,11 @@ export default function LmsDashboardPage() {
              setGroupData({
                id: g.id, name: g.name, courseId: g.course_id, price: g.price?.toString() || '', capacity: g.capacity,
                startDate: g.start_date ? new Date(g.start_date).toISOString().split('T')[0] : '',
+               endDate: g.end_date ? new Date(g.end_date).toISOString().split('T')[0] : '',
                teacherId: g.teacher_id || '', supportTeacherId: g.support_teacher_id || 'none', roomId: g.room_id || '',
                selectedDays: g.schedules?.map((s: any) => s.day_of_week) || [],
                startTime: g.schedules?.[0]?.start_time || '09:00', endTime: g.schedules?.[0]?.end_time || '11:00',
-               is_vip: g.is_vip || false,
-               teacher_salary_type: g.teacher_salary_type || 'PERCENT_REVENUE',
-               teacher_salary_value: g.teacher_salary_value?.toString() || '',
-               support_salary_type: g.support_salary_type || 'FIXED',
-               support_salary_value: g.support_salary_value?.toString() || '',
-               main_teacher_days: g.main_teacher_days || 0,
-               support_teacher_days: g.support_teacher_days || 0
+               is_vip: g.is_vip || false
              });
              setIsEditMode(true);
              setActiveModal('form');

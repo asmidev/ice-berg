@@ -258,8 +258,20 @@ export const TeacherModals = ({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Ish haqi miqdori</Label>
-                      <MoneyInput value={formData.salaryAmount} onChange={val => setFormData({...formData, salaryAmount: val})} />
+                      <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest ml-1">
+                        {formData.salaryType === 'PERCENTAGE' ? 'Foiz miqdori (%)' : 'Ish haqi miqdori'}
+                      </Label>
+                      {formData.salaryType === 'PERCENTAGE' ? (
+                        <Input 
+                           type="number" min="0" max="100" 
+                           value={formData.salaryAmount} 
+                           onChange={e => setFormData({...formData, salaryAmount: e.target.value})} 
+                           placeholder="Masalan: 50"
+                           className="h-11 bg-white border-zinc-200 rounded-md font-bold text-zinc-800" 
+                        />
+                      ) : (
+                        <MoneyInput value={formData.salaryAmount} onChange={val => setFormData({...formData, salaryAmount: val})} />
+                      )}
                     </div>
 
                     <div className="space-y-1.5">

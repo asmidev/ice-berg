@@ -58,6 +58,12 @@ export function GroupModals({
     { id: 0, name: "Yakshanba" }
   ];
 
+  const timeOptions: string[] = [];
+  for (let h = 5; h <= 23; h++) {
+    timeOptions.push(`${h.toString().padStart(2, '0')}:00`);
+    timeOptions.push(`${h.toString().padStart(2, '0')}:30`);
+  }
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -79,10 +85,19 @@ export function GroupModals({
           <div className="p-8 space-y-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
              {/* Section 1: Basic Info */}
              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                   <div className="w-1.5 h-6 bg-pink-500 rounded-full" />
-                   <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Asosiy Ma'lumotlar</h4>
-                </div>
+                 <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                       <div className="w-1.5 h-6 bg-pink-500 rounded-full" />
+                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Asosiy Ma'lumotlar</h4>
+                    </div>
+                    <div className="flex items-center gap-2 bg-amber-50/50 px-3 py-1.5 rounded-xl border border-amber-100">
+                       <Label className="text-[10px] font-black text-amber-600 uppercase tracking-widest cursor-pointer">VIP Guruh</Label>
+                       <Switch 
+                          checked={groupData.is_vip || false} 
+                          onCheckedChange={val => setGroupData({...groupData, is_vip: val})} 
+                       />
+                    </div>
+                 </div>
                 <div className="grid grid-cols-3 gap-6">
                    <div className="col-span-2 space-y-2">
                       <Label className="text-xs font-bold text-gray-600 ml-1">Guruh nomi <span className="text-pink-500">*</span></Label>
@@ -106,7 +121,7 @@ export function GroupModals({
                    </div>
                 </div>
   
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-4 gap-6">
                    <div className="space-y-2">
                       <Label className="text-xs font-bold text-gray-600 ml-1">Narxi (oylik) <span className="text-pink-500">*</span></Label>
                       <MoneyInput 
@@ -137,114 +152,17 @@ export function GroupModals({
                          className="h-11 bg-white border-gray-200 rounded-xl font-bold text-gray-700"
                       />
                    </div>
+                   <div className="space-y-2">
+                      <Label className="text-xs font-bold text-gray-600 ml-1">Tugash sanasi</Label>
+                      <Input 
+                         type="date"
+                         value={groupData.endDate || ''}
+                         onChange={e => setGroupData({...groupData, endDate: e.target.value})}
+                         className="h-11 bg-white border-gray-200 rounded-xl font-bold text-gray-700"
+                      />
+                   </div>
                 </div>
              </div>
-  
-  
-              {/* Section 2.5: Finance & Payroll */}
-              <div className="space-y-4 pt-4 border-t border-gray-50">
-                 <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
-                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Moliya va Ish haqi</h4>
-                    </div>
-                    <div className="flex items-center gap-2 bg-amber-50/50 px-3 py-1.5 rounded-xl border border-amber-100">
-                       <Label className="text-[10px] font-black text-amber-600 uppercase tracking-widest cursor-pointer">VIP Guruh</Label>
-                       <Switch 
-                          checked={groupData.is_vip || false} 
-                          onCheckedChange={val => setGroupData({...groupData, is_vip: val})} 
-                       />
-                    </div>
-                 </div>
-  
-                 <div className="grid grid-cols-2 gap-8 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                    <div className="space-y-4">
-                       <div className="flex items-center gap-2">
-                           <span className="text-[10px] font-black bg-pink-500 text-white px-2 py-0.5 rounded-md uppercase">Asosiy Ustoz Oyligi</span>
-                       </div>
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Metod</Label>
-                             <Select 
-                                value={groupData.teacher_salary_type || 'PERCENT_REVENUE'} 
-                                onValueChange={val => setGroupData({...groupData, teacher_salary_type: val})}
-                             >
-                                <SelectTrigger className="h-10 bg-white border-gray-200 rounded-xl font-bold text-gray-700 text-xs shadow-sm">
-                                   <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                   <SelectItem value="PERCENT_REVENUE">Tushumdan foiz (%)</SelectItem>
-                                   <SelectItem value="FIXED">Fix summa (so'm)</SelectItem>
-                                </SelectContent>
-                             </Select>
-                          </div>
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Qiymat</Label>
-                             <Input 
-                                type="number"
-                                placeholder={groupData.teacher_salary_type === 'FIXED' ? "Summani kiriting" : "% ni kiriting"}
-                                value={groupData.teacher_salary_value || ""}
-                                onChange={e => setGroupData({...groupData, teacher_salary_value: e.target.value})}
-                                className="h-10 bg-white border-gray-200 rounded-xl font-bold text-gray-700 text-xs shadow-sm"
-                             />
-                          </div>
-                       </div>
-                       <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Haftalik darslari (soni)</Label>
-                          <Input 
-                             type="number"
-                             value={groupData.main_teacher_days || ""}
-                             onChange={e => setGroupData({...groupData, main_teacher_days: parseInt(e.target.value) || 0})}
-                             className="h-10 bg-white border-gray-200 rounded-xl font-bold text-gray-700 text-xs shadow-sm"
-                          />
-                       </div>
-                    </div>
-  
-                    {groupData.supportTeacherId && groupData.supportTeacherId !== 'none' && (
-                       <div className="space-y-4 border-l border-gray-200 pl-8">
-                          <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black bg-cyan-500 text-white px-2 py-0.5 rounded-md uppercase">Yordamchi Ustoz Oyligi</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Metod</Label>
-                                <Select 
-                                   value={groupData.support_salary_type || 'FIXED'} 
-                                   onValueChange={val => setGroupData({...groupData, support_salary_type: val})}
-                                >
-                                   <SelectTrigger className="h-10 bg-white border-gray-200 rounded-xl font-bold text-gray-700 text-xs shadow-sm">
-                                      <SelectValue />
-                                   </SelectTrigger>
-                                   <SelectContent>
-                                      <SelectItem value="PERCENT_REVENUE">Tushumdan foiz (%)</SelectItem>
-                                      <SelectItem value="FIXED">Fix summa (so'm)</SelectItem>
-                                   </SelectContent>
-                                </Select>
-                             </div>
-                             <div className="space-y-2">
-                                <Label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Qiymat</Label>
-                                <Input 
-                                   type="number"
-                                   placeholder={groupData.support_salary_type === 'FIXED' ? "Summani kiriting" : "% ni kiriting"}
-                                   value={groupData.support_salary_value || ""}
-                                   onChange={e => setGroupData({...groupData, support_salary_value: e.target.value})}
-                                   className="h-10 bg-white border-gray-200 rounded-xl font-bold text-gray-700 text-xs shadow-sm"
-                                />
-                             </div>
-                          </div>
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Haftalik darslari (soni)</Label>
-                             <Input 
-                                type="number"
-                                value={groupData.support_teacher_days || ""}
-                                onChange={e => setGroupData({...groupData, support_teacher_days: parseInt(e.target.value) || 0})}
-                                className="h-10 bg-white border-gray-200 rounded-xl font-bold text-gray-700 text-xs shadow-sm"
-                             />
-                          </div>
-                       </div>
-                    )}
-                 </div>
-              </div>
   
               {/* Section 2: Teachers & Room */}
               <div className="space-y-4 pt-4 border-t border-gray-50">
@@ -326,25 +244,33 @@ export function GroupModals({
                       <div className="space-y-2">
                          <Label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Boshlanish vaqti</Label>
                          <div className="relative">
-                            <Input 
-                               type="time" 
-                               value={groupData.startTime}
-                               onChange={e => setGroupData({...groupData, startTime: e.target.value})}
-                               className="h-12 bg-white border-none rounded-xl font-bold text-gray-700 pl-10 shadow-sm"
-                            />
-                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-500" />
+                            <Select value={groupData.startTime} onValueChange={val => setGroupData({...groupData, startTime: val})}>
+                               <SelectTrigger className="h-12 bg-white border-none rounded-xl font-bold text-gray-700 pl-10 shadow-sm w-full">
+                                  <SelectValue placeholder="Vaqtni tanlang" />
+                               </SelectTrigger>
+                               <SelectContent className="max-h-[250px] rounded-xl shadow-xl border-gray-100">
+                                  {timeOptions.map(time => (
+                                     <SelectItem key={time} value={time} className="font-bold text-gray-700">{time}</SelectItem>
+                                  ))}
+                               </SelectContent>
+                            </Select>
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-500 pointer-events-none" />
                          </div>
                       </div>
                       <div className="space-y-2">
                          <Label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Tugash vaqti</Label>
                          <div className="relative">
-                            <Input 
-                               type="time" 
-                               value={groupData.endTime}
-                               onChange={e => setGroupData({...groupData, endTime: e.target.value})}
-                               className="h-12 bg-white border-none rounded-xl font-bold text-gray-700 pl-10 shadow-sm"
-                            />
-                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-500" />
+                            <Select value={groupData.endTime} onValueChange={val => setGroupData({...groupData, endTime: val})}>
+                               <SelectTrigger className="h-12 bg-white border-none rounded-xl font-bold text-gray-700 pl-10 shadow-sm w-full">
+                                  <SelectValue placeholder="Vaqtni tanlang" />
+                               </SelectTrigger>
+                               <SelectContent className="max-h-[250px] rounded-xl shadow-xl border-gray-100">
+                                  {timeOptions.map(time => (
+                                     <SelectItem key={time} value={time} className="font-bold text-gray-700">{time}</SelectItem>
+                                  ))}
+                               </SelectContent>
+                            </Select>
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-500 pointer-events-none" />
                          </div>
                       </div>
                    </div>

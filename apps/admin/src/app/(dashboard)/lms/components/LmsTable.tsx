@@ -92,9 +92,11 @@ export function LmsTable({ groups, isLoading, onEdit, onArchive, onDelete, onVie
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8 rounded-full">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${teacherName}`} />
+                        {group.teacher?.user?.photo_url && (
+                          <AvatarImage src={group.teacher.user.photo_url} alt={teacherName} className="object-cover" />
+                        )}
                         <AvatarFallback className="bg-pink-100 text-pink-600 font-bold text-[10px]">
-                          {teacherName.split(' ').map(n => n[0]).join('')}
+                          {teacherName.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col text-xs">

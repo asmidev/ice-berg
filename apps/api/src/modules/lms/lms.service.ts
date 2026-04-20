@@ -234,8 +234,8 @@ export class LmsService {
       include: { 
         course: true, 
         branch: { select: { id: true, name: true } },
-        teacher: { include: { user: { select: { id: true, first_name: true, last_name: true } } } },
-        support_teacher: { include: { user: { select: { id: true, first_name: true, last_name: true } } } },
+        teacher: { include: { user: { select: { id: true, first_name: true, last_name: true, photo_url: true } } } },
+        support_teacher: { include: { user: { select: { id: true, first_name: true, last_name: true, photo_url: true } } } },
         _count: { select: { enrollments: { where: { status: 'ACTIVE' } } } },
         schedules: { include: { room: true } },
         invoices: {
@@ -258,7 +258,7 @@ export class LmsService {
       }
     });
 
-    if (!group) throw new Error('Guruh topilmadi');
+    if (!group) throw new HttpException('Guruh topilmadi', 404);
 
     if (group.current_stage >= group.total_stages) {
       return this.prisma.group.update({
@@ -372,8 +372,8 @@ export class LmsService {
       include: { 
         course: true, 
         branch: { select: { id: true, name: true } },
-        teacher: { include: { user: { select: { id: true, first_name: true, last_name: true } } } },
-        support_teacher: { include: { user: { select: { id: true, first_name: true, last_name: true } } } },
+        teacher: { include: { user: { select: { id: true, first_name: true, last_name: true, photo_url: true } } } },
+        support_teacher: { include: { user: { select: { id: true, first_name: true, last_name: true, photo_url: true } } } },
         _count: { select: { enrollments: true } },
         schedules: { include: { room: true } }
       },
@@ -421,7 +421,7 @@ export class LmsService {
             group: {
               tenant_id: tenantId,
               is_archived: false,
-              id: { not: currentGroupId }
+              ...(currentGroupId ? { id: { not: currentGroupId } } : {})
             },
             OR: [
               { AND: [{ start_time: { lte: startTime } }, { end_time: { gt: startTime } }] },
@@ -449,7 +449,7 @@ export class LmsService {
             group: {
               tenant_id: tenantId,
               is_archived: false,
-              id: { not: currentGroupId },
+              ...(currentGroupId ? { id: { not: currentGroupId } } : {}),
               OR: [
                 { teacher_id: { in: teachersToCheck as string[] } },
                 { support_teacher_id: { in: teachersToCheck as string[] } }
@@ -495,7 +495,7 @@ export class LmsService {
       select: { branch_id: true, teacher_id: true, support_teacher_id: true }
     });
 
-    if (!group) throw new Error('Guruh topilmadi');
+    if (!group) throw new HttpException('Guruh topilmadi', 404);
 
     // Conflict Check
     await this.validateSchedule(tenantId, group.branch_id, data.schedules, group.teacher_id, group.support_teacher_id, groupId);
@@ -583,7 +583,7 @@ export class LmsService {
       select: { branch_id: true }
     });
 
-    if (!group) throw new Error('Guruh topilmadi');
+    if (!group) throw new HttpException('Guruh topilmadi', 404);
 
     const where: any = {
       tenant_id: tenantId,
@@ -609,7 +609,7 @@ export class LmsService {
       where: { id: groupId },
       include: { schedules: true }
     });
-    if (!group) throw new Error('Guruh topilmadi');
+    if (!group) throw new HttpException('Guruh topilmadi', 404);
 
     const monthStr = new Date().toLocaleString('uz-UZ', { month: 'long', year: 'numeric' });
     const formattedMonth = monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
@@ -712,7 +712,7 @@ export class LmsService {
   async markAttendance(tenantId: string, data: any) {
     const { groupId, date, scheduleId, attendances } = data;
     const group = await this.prisma.group.findFirst({ where: { id: groupId, tenant_id: tenantId } });
-    if (!group) throw new Error('Guruh topilmadi');
+    if (!group) throw new HttpException('Guruh topilmadi', 404);
 
     return this.prisma.$transaction(
       attendances.map((att: any) => 
@@ -750,7 +750,7 @@ export class LmsService {
     });
 
     if (!enrollment || enrollment.group.tenant_id !== tenantId) {
-       throw new Error('Ro\'yxatdan o\'tish ma\'lumoti topilmadi');
+       throw new HttpException('Ro\'yxatdan o\'tish ma\'lumoti topilmadi', 404);
     }
 
     const group = enrollment.group;
@@ -797,7 +797,7 @@ export class LmsService {
       where: { id: enrollmentId },
       select: { student_id: true, group_id: true, group: { select: { branch_id: true } } }
     });
-    if (!enrollment) throw new Error('Ro\'yxat topilmadi');
+    if (!enrollment) throw new HttpException('Ro\'yxat topilmadi', 404);
 
     return this.prisma.$transaction(async (prisma) => {
       await prisma.enrollment.update({ where: { id: enrollmentId }, data: { status: 'REMOVED' } });
