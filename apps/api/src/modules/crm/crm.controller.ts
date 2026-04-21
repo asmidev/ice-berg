@@ -1,92 +1,152 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, Req, HttpException, HttpStatus } from '@nestjs/common';
 import { CrmService } from './crm.service';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('crm')
 export class CrmController {
   constructor(private readonly crmService: CrmService) {}
 
   @Post('leads')
-  createLead(@Req() req: any, @Body() data: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.createLead(tenantId, data);
+  @SetPermissions('leads.create')
+  async createLead(@Req() req: any, @Body() data: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.createLead(tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('leads')
-  getLeads(@Req() req: any, @Query() query: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.getLeads(tenantId, query);
+  @SetPermissions('leads.view')
+  async getLeads(@Req() req: any, @Query() query: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.getLeads(tenantId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('stages')
-  getStages(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.getStages(tenantId);
+  @SetPermissions('leads.view')
+  async getStages(@Req() req: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.getStages(tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
-
   @Get('archive-reasons')
-  getArchiveReasons(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.getArchiveReasons(tenantId);
+  @SetPermissions('leads.view')
+  async getArchiveReasons(@Req() req: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.getArchiveReasons(tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('archive-reasons')
-  createArchiveReason(@Req() req: any, @Body('name') name: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.createArchiveReason(tenantId, name);
+  @SetPermissions('leads.update')
+  async createArchiveReason(@Req() req: any, @Body('name') name: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.createArchiveReason(tenantId, name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('sources')
-  getSources(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.getSources(tenantId);
+  @SetPermissions('leads.view')
+  async getSources(@Req() req: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.getSources(tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('sources')
-  createSource(@Req() req: any, @Body('name') name: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.createSource(tenantId, name);
+  @SetPermissions('leads.create')
+  async createSource(@Req() req: any, @Body('name') name: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.createSource(tenantId, name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('leads/:id/stage')
-  updateStage(@Req() req: any, @Param('id') id: string, @Body('stageId') stageId: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.updateStage(tenantId, id, stageId);
+  @SetPermissions('leads.update')
+  async updateStage(@Req() req: any, @Param('id') id: string, @Body('stageId') stageId: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.updateStage(tenantId, id, stageId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('leads/:id/convert')
-  convertToStudent(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.convertToStudent(tenantId, id);
+  @SetPermissions('leads.convert')
+  async convertToStudent(@Req() req: any, @Param('id') id: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.convertToStudent(tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('leads/:id/archive')
-  archiveLead(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.archiveLead(tenantId, id, reason);
+  @SetPermissions('leads.delete')
+  async archiveLead(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.archiveLead(tenantId, id, reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('leads/:id/restore')
-  restoreLead(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.restoreLead(tenantId, id);
+  @SetPermissions('leads.delete')
+  async restoreLead(@Req() req: any, @Param('id') id: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.restoreLead(tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('archive-stats')
-  getArchiveStats(@Req() req: any, @Query('branch_id') branchId: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.crmService.getArchiveStats(tenantId, branchId);
+  @SetPermissions('leads.view', 'analytics.crm')
+  async getArchiveStats(@Req() req: any, @Query('branch_id') branchId: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.crmService.getArchiveStats(tenantId, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Body, Param, Req, Query, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Req, Query, Delete, HttpException, HttpStatus } from '@nestjs/common';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 import { StudentsService } from './students.service';
 
 @Controller('students')
@@ -72,89 +73,154 @@ export class StudentsController {
   }
 
   @Get()
-  getAll(@Req() req: any, @Query('branch_id') branchId?: string, @Query() query?: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.getStudents(tenantId, branchId, query);
+  @SetPermissions('students.view')
+  async getAll(@Req() req: any, @Query('branch_id') branchId?: string, @Query() query?: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.getStudents(tenantId, branchId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('archive-stats')
-  getArchiveStats(@Req() req: any, @Query('branch_id') branchId?: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.getArchiveStats(tenantId, branchId);
+  @SetPermissions('students.view', 'students.archive')
+  async getArchiveStats(@Req() req: any, @Query('branch_id') branchId?: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.getArchiveStats(tenantId, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post()
-  create(@Req() req: any, @Body() data: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.createStudent(tenantId, data);
+  @SetPermissions('students.create')
+  async create(@Req() req: any, @Body() data: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.createStudent(tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('archive/reasons')
-  getArchiveReasons(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.getArchiveReasons(tenantId);
+  @SetPermissions('students.view', 'students.archive')
+  async getArchiveReasons(@Req() req: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.getArchiveReasons(tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('archive/reasons')
-  createArchiveReason(@Req() req: any, @Body() body: { name: string }) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.createArchiveReason(tenantId, body.name);
+  @SetPermissions('students.archive')
+  async createArchiveReason(@Req() req: any, @Body() body: { name: string }) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.createArchiveReason(tenantId, body.name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id')
-  update(@Req() req: any, @Param('id') id: string, @Body() data: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.updateStudent(tenantId, id, data);
+  @SetPermissions('students.update')
+  async update(@Req() req: any, @Param('id') id: string, @Body() data: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.updateStudent(tenantId, id, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id/password')
-  changePassword(@Req() req: any, @Param('id') id: string, @Body() data: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.updatePassword(tenantId, id, data);
+  @SetPermissions('students.update')
+  async changePassword(@Req() req: any, @Param('id') id: string, @Body() data: any) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.updatePassword(tenantId, id, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete(':id')
-  delete(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.deleteStudent(tenantId, id);
+  @SetPermissions('students.delete')
+  async delete(@Req() req: any, @Param('id') id: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.deleteStudent(tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get(':id')
-  getOne(@Req() req: any, @Param('id') id: string, @Query('branch_id') branchId?: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.getStudentById(tenantId, id, branchId);
+  @SetPermissions('students.view')
+  async getOne(@Req() req: any, @Param('id') id: string, @Query('branch_id') branchId?: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.getStudentById(tenantId, id, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post(':id/groups/:groupId')
-  assignGroup(@Req() req: any, @Param('id') id: string, @Param('groupId') groupId: string) {
-    return this.studentsService.assignToGroup(req.user.tenantId, id, groupId);
+  @SetPermissions('students.update', 'groups.update')
+  async assignGroup(@Req() req: any, @Param('id') id: string, @Param('groupId') groupId: string) {
+    try {
+      return await this.studentsService.assignToGroup(req.user.tenantId, id, groupId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id/groups/transfer')
-  transferGroup(@Req() req: any, @Param('id') id: string, @Body() body: { oldGroupId: string, newGroupId: string }) {
-    return this.studentsService.transferGroup(req.user.tenantId, id, body.oldGroupId, body.newGroupId);
+  @SetPermissions('students.update', 'groups.update')
+  async transferGroup(@Req() req: any, @Param('id') id: string, @Body() body: { oldGroupId: string, newGroupId: string }) {
+    try {
+      return await this.studentsService.transferGroup(req.user.tenantId, id, body.oldGroupId, body.newGroupId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id/archive')
-  archiveStudent(@Req() req: any, @Param('id') id: string, @Body() body: { reason: string }) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.archiveStudent(tenantId, id, body.reason);
+  @SetPermissions('students.archive')
+  async archiveStudent(@Req() req: any, @Param('id') id: string, @Body() body: { reason: string }) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.archiveStudent(tenantId, id, body.reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id/restore')
-  restoreStudent(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new Error('Unauthorized');
-    return this.studentsService.restoreStudent(tenantId, id);
+  @SetPermissions('students.restore')
+  async restoreStudent(@Req() req: any, @Param('id') id: string) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.restoreStudent(tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

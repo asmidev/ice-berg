@@ -780,6 +780,7 @@ exports.Prisma.CallCenterTaskScalarFieldEnum = {
   tenant_id: 'tenant_id',
   branch_id: 'branch_id',
   student_id: 'student_id',
+  lead_id: 'lead_id',
   staff_id: 'staff_id',
   type: 'type',
   status: 'status',

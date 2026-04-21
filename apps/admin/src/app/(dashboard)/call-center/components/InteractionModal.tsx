@@ -16,7 +16,7 @@ interface InteractionModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   student: any;
-  taskType: 'DEBTOR' | 'NEW_LEAD' | 'ABSENTEE';
+  taskType: 'DEBTOR' | 'NEW_LEAD' | 'ABSENTEE' | 'LEAD';
   onSuccess: () => void;
 }
 
@@ -34,8 +34,7 @@ export default function InteractionModal({ isOpen, onOpenChange, student, taskTy
     if (!form.note) return;
     setSubmitting(true);
     try {
-      await api.post('/call-center/interaction', {
-        studentId: student.id,
+      const payload: any = {
         taskId: student.callCenterTasks?.[0]?.id,
         branchId: student.branch_id,
         type: taskType,
@@ -43,7 +42,15 @@ export default function InteractionModal({ isOpen, onOpenChange, student, taskTy
         nextCallAt: form.nextCallAt,
         promisedDate: form.promisedDate,
         status: form.status
-      });
+      };
+
+      if (student.isLead) {
+        payload.leadId = student.id;
+      } else {
+        payload.studentId = student.id;
+      }
+
+      await api.post('/call-center/interaction', payload);
       
       onSuccess();
 

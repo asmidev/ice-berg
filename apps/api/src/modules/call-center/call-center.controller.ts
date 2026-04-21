@@ -1,35 +1,71 @@
-import { Controller, Get, Post, Body, Query, Req, UseGuards, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, Param, Put, HttpException, HttpStatus } from '@nestjs/common';
 import { CallCenterService } from './call-center.service';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('call-center')
 export class CallCenterController {
   constructor(private readonly callCenterService: CallCenterService) {}
 
   @Get('debtors')
-  getDebtors(@Req() req: any, @Query() query: any) {
-    return this.callCenterService.getDebtors(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('callcenter.debtors')
+  async getDebtors(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.callCenterService.getDebtors(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('new-leads')
-  getNewLeads(@Req() req: any, @Query() query: any) {
-    return this.callCenterService.getNewLeads(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('callcenter.new_leads')
+  async getNewLeads(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.callCenterService.getNewLeads(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('absentees')
-  getAbsentees(@Req() req: any, @Query() query: any) {
-    return this.callCenterService.getAbsentees(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('callcenter.absentees')
+  async getAbsentees(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.callCenterService.getAbsentees(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get('leads')
+  @SetPermissions('callcenter.leads')
+  async getLeads(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.callCenterService.getLeads(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('interaction')
-  saveInteraction(@Req() req: any, @Body() data: any) {
-    return this.callCenterService.saveInteraction(req.user.tenantId, {
-      ...data,
-      staffId: req.user.id
-    });
+  @SetPermissions('callcenter.interaction')
+  async saveInteraction(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.callCenterService.saveInteraction(req.user.tenantId, {
+        ...data,
+        staffId: req.user.id
+      });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('tasks/:id/resolve')
-  resolveTask(@Param('id') id: string) {
-    return this.callCenterService.resolveTask(id);
+  @SetPermissions('callcenter.interaction')
+  async resolveTask(@Param('id') id: string) {
+    try {
+      return await this.callCenterService.resolveTask(id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

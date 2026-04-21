@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Req, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { FinanceService } from './finance.service';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('finance')
 export class FinanceController {
@@ -8,259 +9,508 @@ export class FinanceController {
   ) {}
 
   @Get('cashboxes')
-  getCashboxes(@Req() req: any, @Query('branch_id') branchId?: string) {
-    return this.financeService.getCashboxes(req.user.tenantId, branchId);
+  @SetPermissions('cashbox.view')
+  async getCashboxes(@Req() req: any, @Query('branch_id') branchId?: string) {
+    try {
+      return await this.financeService.getCashboxes(req.user.tenantId, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('cashbox/summary')
-  getCashboxSummary(@Req() req: any, @Query() query: any) {
-    return this.financeService.getCashboxSummary(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('cashbox.view')
+  async getCashboxSummary(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getCashboxSummary(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('archive-stats')
-  getArchiveStats(@Req() req: any, @Query('branch_id') branchId: string) {
-    return this.financeService.getArchiveStats(req.user.tenantId, branchId);
+  @SetPermissions('analytics.financial', 'cashbox.view')
+  async getArchiveStats(@Req() req: any, @Query('branch_id') branchId: string) {
+    try {
+      return await this.financeService.getArchiveStats(req.user.tenantId, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('cashbox/transfers')
-  getTransfers(@Req() req: any, @Query() query: any) {
-    return this.financeService.getTransfers(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('cashbox.view')
+  async getTransfers(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getTransfers(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('cashbox/transfers')
-  executeTransfer(@Req() req: any, @Body() data: any) {
-    return this.financeService.executeTransfer(req.user.tenantId, req.user.userId, data);
+  @SetPermissions('cashbox.transfer')
+  async executeTransfer(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.executeTransfer(req.user.tenantId, req.user.userId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('cashbox/graph')
-  getCashflowGraphData(@Req() req: any, @Query() query: any) {
-    return this.financeService.getCashflowGraphData(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('analytics.financial')
+  async getCashflowGraphData(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getCashflowGraphData(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('payments')
-  processPayment(@Req() req: any, @Body() data: any) {
-    return this.financeService.processPayment(req.user.tenantId, { ...data, cashier_id: req.user.userId });
+  @SetPermissions('payments.create')
+  async processPayment(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.processPayment(req.user.tenantId, { ...data, cashier_id: req.user.userId });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('payments/stats')
-  getPaymentStats(@Req() req: any, @Query('branch_id') branchId?: string, @Query('period') period?: string, @Query() query?: any) {
-    return this.financeService.getPaymentStats(req.user.tenantId, branchId, period, query);
+  @SetPermissions('payments.view', 'analytics.financial')
+  async getPaymentStats(@Req() req: any, @Query('branch_id') branchId?: string, @Query('period') period?: string, @Query() query?: any) {
+    try {
+      return await this.financeService.getPaymentStats(req.user.tenantId, branchId, period, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('invoices/unpaid/:studentId')
-  getUnpaidInvoices(@Req() req: any, @Param('studentId') studentId: string) {
-    return this.financeService.getUnpaidInvoices(req.user.tenantId, studentId);
+  @SetPermissions('payments.view')
+  async getUnpaidInvoices(@Req() req: any, @Param('studentId') studentId: string) {
+    try {
+      return await this.financeService.getUnpaidInvoices(req.user.tenantId, studentId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('transactions')
-  getTransactions(@Req() req: any, @Query() query: any) {
-    // Barcha query parametrlarini birga uzatamiz
-    return this.financeService.getTransactions(req.user.tenantId, query);
+  @SetPermissions('payments.view')
+  async getTransactions(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getTransactions(req.user.tenantId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('debtors')
-  getDebtors(@Req() req: any, @Query() query: any) {
-    return this.financeService.getDebtors(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('callcenter.debtors', 'analytics.financial')
+  async getDebtors(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getDebtors(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('debtors/:studentId/debts')
-  clearStudentDebts(@Req() req: any, @Param('studentId') studentId: string) {
-    return this.financeService.clearStudentDebts(req.user.tenantId, studentId);
+  @SetPermissions('payments.delete')
+  async clearStudentDebts(@Req() req: any, @Param('studentId') studentId: string) {
+    try {
+      return await this.financeService.clearStudentDebts(req.user.tenantId, studentId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('expenses')
-  recordExpense(@Req() req: any, @Body() data: any) {
-    return this.financeService.recordExpense(req.user.tenantId, { ...data, userId: req.user.userId });
+  @SetPermissions('expenses.create')
+  async recordExpense(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.recordExpense(req.user.tenantId, { ...data, userId: req.user.userId });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('expenses')
-  getExpenses(@Req() req: any, @Query() query: any) {
-    return this.financeService.getExpenses(req.user.tenantId, query);
+  @SetPermissions('expenses.view')
+  async getExpenses(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getExpenses(req.user.tenantId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('expenses/:id/archive')
-  archiveExpense(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
-    return this.financeService.archiveExpense(req.user.tenantId, id, reason);
+  @SetPermissions('expenses.delete')
+  async archiveExpense(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
+    try {
+      return await this.financeService.archiveExpense(req.user.tenantId, id, reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('expenses/:id/restore')
-  restoreExpense(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.restoreExpense(req.user.tenantId, id);
+  @SetPermissions('expenses.delete')
+  async restoreExpense(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.restoreExpense(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('expenses/:id')
-  deleteExpense(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteExpense(req.user.tenantId, id);
+  @SetPermissions('expenses.delete')
+  async deleteExpense(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteExpense(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('payrolls')
-  generatePayroll(@Req() req: any, @Body() data: any) {
-    return this.financeService.generatePayroll(req.user.tenantId, data);
+  @SetPermissions('salaries.calculate')
+  async generatePayroll(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.generatePayroll(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('payrolls/:id/process')
-  processPayroll(@Req() req: any, @Param('id') id: string, @Body() data: any) {
-    return this.financeService.processPayroll(req.user.tenantId, id, data);
+  @SetPermissions('salaries.pay')
+  async processPayroll(@Req() req: any, @Param('id') id: string, @Body() data: any) {
+    try {
+      return await this.financeService.processPayroll(req.user.tenantId, id, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('payrolls')
-  getPayrolls(@Req() req: any, @Query() query: any) {
-    return this.financeService.getPayrolls(req.user.tenantId, query);
+  @SetPermissions('salaries.view')
+  async getPayrolls(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getPayrolls(req.user.tenantId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('payrolls/:id/archive')
-  archivePayroll(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
-    return this.financeService.archivePayroll(req.user.tenantId, id, reason);
+  @SetPermissions('salaries.calculate')
+  async archivePayroll(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
+    try {
+      return await this.financeService.archivePayroll(req.user.tenantId, id, reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('payrolls/:id/restore')
-  restorePayroll(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.restorePayroll(req.user.tenantId, id);
+  @SetPermissions('salaries.calculate')
+  async restorePayroll(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.restorePayroll(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('payrolls/:id')
-  deletePayroll(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deletePayroll(req.user.tenantId, id);
+  @SetPermissions('salaries.calculate')
+  async deletePayroll(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deletePayroll(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('discounts')
-  getDiscounts(@Req() req: any) {
-    return this.financeService.getDiscounts(req.user.tenantId);
+  @SetPermissions('discounts.view')
+  async getDiscounts(@Req() req: any) {
+    try {
+      return await this.financeService.getDiscounts(req.user.tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('sales')
-  getSales(@Req() req: any, @Query() query: any) {
-    return this.financeService.getSales(req.user.tenantId, query.branch_id, query);
+  @SetPermissions('incomes.view')
+  async getSales(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getSales(req.user.tenantId, query.branch_id, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('sales')
-  recordSale(@Req() req: any, @Body() body: any) {
-    return this.financeService.recordSale(req.user.tenantId, { ...body, staff_id: req.user.userId });
+  @SetPermissions('incomes.create')
+  async recordSale(@Req() req: any, @Body() body: any) {
+    try {
+      return await this.financeService.recordSale(req.user.tenantId, { ...body, staff_id: req.user.userId });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('sales/:id/archive')
-  archiveSale(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
-    return this.financeService.archiveSale(req.user.tenantId, id, reason);
+  @SetPermissions('incomes.delete')
+  async archiveSale(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
+    try {
+      return await this.financeService.archiveSale(req.user.tenantId, id, reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('sales/:id/restore')
-  restoreSale(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.restoreSale(req.user.tenantId, id);
+  @SetPermissions('incomes.delete')
+  async restoreSale(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.restoreSale(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('sales/:id')
-  deleteSale(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteSale(req.user.tenantId, id);
+  @SetPermissions('incomes.delete')
+  async deleteSale(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteSale(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // Payments Archive Endpoints
   @Put('payments/:id/change-method')
-  changePaymentMethod(@Req() req: any, @Param('id') id: string, @Body() data: { type: string, reason?: string }) {
-    return this.financeService.changePaymentMethod(req.user.tenantId, id, data.type, data.reason);
+  @SetPermissions('payments.create', 'payments.delete')
+  async changePaymentMethod(@Req() req: any, @Param('id') id: string, @Body() data: { type: string, reason?: string }) {
+    try {
+      return await this.financeService.changePaymentMethod(req.user.tenantId, id, data.type, data.reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('payments/:id/archive')
-  archivePayment(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
-    return this.financeService.archivePayment(req.user.tenantId, id, reason);
+  @SetPermissions('payments.delete')
+  async archivePayment(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
+    try {
+      return await this.financeService.archivePayment(req.user.tenantId, id, reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('payments/:id/restore')
-  restorePayment(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.restorePayment(req.user.tenantId, id);
+  @SetPermissions('payments.delete')
+  async restorePayment(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.restorePayment(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('payments/:id')
-  deletePayment(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deletePayment(req.user.tenantId, id);
+  @SetPermissions('payments.delete')
+  async deletePayment(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deletePayment(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // --- BONUSES ---
   @Get('bonuses')
-  getBonuses(@Req() req: any, @Query() query: any) {
-    return this.financeService.getBonuses(req.user.tenantId, query);
+  @SetPermissions('salaries.view')
+  async getBonuses(@Req() req: any, @Query() query: any) {
+    try {
+      return await this.financeService.getBonuses(req.user.tenantId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('bonuses')
-  createBonus(@Req() req: any, @Body() data: any) {
-    return this.financeService.createBonus(req.user.tenantId, data);
+  @SetPermissions('salaries.calculate')
+  async createBonus(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.createBonus(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('bonuses/:id/archive')
-  archiveBonus(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
-    return this.financeService.archiveBonus(req.user.tenantId, id, reason);
+  @SetPermissions('salaries.calculate')
+  async archiveBonus(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {
+    try {
+      return await this.financeService.archiveBonus(req.user.tenantId, id, reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('bonuses/:id/restore')
-  restoreBonus(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.restoreBonus(req.user.tenantId, id);
+  @SetPermissions('salaries.calculate')
+  async restoreBonus(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.restoreBonus(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('bonuses/:id')
-  deleteBonus(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteBonus(req.user.tenantId, id);
+  @SetPermissions('salaries.calculate')
+  async deleteBonus(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteBonus(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // --- BONUS SOURCES ---
   @Get('bonus-sources')
-  getBonusSources(@Req() req: any) {
-    return this.financeService.getBonusSources(req.user.tenantId);
+  @SetPermissions('salaries.view')
+  async getBonusSources(@Req() req: any) {
+    try {
+      return await this.financeService.getBonusSources(req.user.tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('bonus-sources')
-  createBonusSource(@Req() req: any, @Body() data: any) {
-    return this.financeService.createBonusSource(req.user.tenantId, data);
+  @SetPermissions('salaries.calculate')
+  async createBonusSource(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.createBonusSource(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('bonus-sources/:id')
-  deleteBonusSource(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteBonusSource(req.user.tenantId, id);
+  @SetPermissions('salaries.calculate')
+  async deleteBonusSource(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteBonusSource(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // --- EXPENSE CATEGORIES ---
   @Get('expense-categories')
-  getExpenseCategories(@Req() req: any) {
-    return this.financeService.getExpenseCategories(req.user.tenantId);
+  @SetPermissions('expenses.view')
+  async getExpenseCategories(@Req() req: any) {
+    try {
+      return await this.financeService.getExpenseCategories(req.user.tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('expense-categories')
-  saveExpenseCategory(@Req() req: any, @Body() data: any) {
-    return this.financeService.saveExpenseCategory(req.user.tenantId, data);
+  @SetPermissions('expenses.create')
+  async saveExpenseCategory(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.saveExpenseCategory(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('expense-categories/:id')
-  deleteExpenseCategory(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteExpenseCategory(req.user.tenantId, id);
+  @SetPermissions('expenses.delete')
+  async deleteExpenseCategory(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteExpenseCategory(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // --- DEPARTMENTS ---
   @Get('departments')
-  getDepartments(@Req() req: any) {
-    return this.financeService.getDepartments(req.user.tenantId);
+  @SetPermissions('expenses.view')
+  async getDepartments(@Req() req: any) {
+    try {
+      return await this.financeService.getDepartments(req.user.tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('departments')
-  saveDepartment(@Req() req: any, @Body() data: any) {
-    return this.financeService.saveDepartment(req.user.tenantId, data);
+  @SetPermissions('expenses.create')
+  async saveDepartment(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.saveDepartment(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('departments/:id')
-  deleteDepartment(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteDepartment(req.user.tenantId, id);
+  @SetPermissions('expenses.delete')
+  async deleteDepartment(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteDepartment(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // --- EXPENSE PLANNING ---
   @Get('expense-plans')
-  getExpensePlans(@Req() req: any, @Query('branch_id') branchId?: string) {
-    return this.financeService.getExpensePlans(req.user.tenantId, branchId);
+  @SetPermissions('expenses.view')
+  async getExpensePlans(@Req() req: any, @Query('branch_id') branchId?: string) {
+    try {
+      return await this.financeService.getExpensePlans(req.user.tenantId, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('expense-plans')
-  saveExpensePlan(@Req() req: any, @Body() data: any) {
-    return this.financeService.saveExpensePlan(req.user.tenantId, data);
+  @SetPermissions('expenses.create')
+  async saveExpensePlan(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.saveExpensePlan(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('expense-plans/:id')
-  deleteExpensePlan(@Req() req: any, @Param('id') id: string) {
-    return this.financeService.deleteExpensePlan(req.user.tenantId, id);
+  @SetPermissions('expenses.delete')
+  async deleteExpensePlan(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.financeService.deleteExpensePlan(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

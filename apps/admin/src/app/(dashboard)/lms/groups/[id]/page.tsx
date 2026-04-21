@@ -447,11 +447,11 @@ export default function GroupDetailsPage() {
                                             <div className="flex items-center justify-center">
                                                {status === 'PRESENT' ? (
                                                   <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-sm">
-                                                     {hasAttendance?.score ? <span className="text-[10px] font-black">{hasAttendance.score}</span> : <CheckCircle2 size={13} />}
+                                                     <CheckCircle2 size={13} />
                                                   </div>
                                                ) : status === 'LATE' ? (
                                                   <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-sm">
-                                                     {hasAttendance?.score ? <span className="text-[10px] font-black">{hasAttendance.score}</span> : <Clock size={13} />}
+                                                     <Clock size={13} />
                                                   </div>
                                                ) : status === 'ABSENT' ? (
                                                   <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">

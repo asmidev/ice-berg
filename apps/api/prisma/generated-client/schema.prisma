@@ -333,28 +333,29 @@ model StudentArchiveReason {
 }
 
 model Lead {
-  id             String      @id @default(uuid())
-  tenant_id      String
-  name           String
-  phone          String
-  manager_id     String?
-  notes          String?
-  created_at     DateTime    @default(now())
-  branch_id      String?
-  source_id      String?
-  stage_id       String?
-  archive_reason String?
-  status         String      @default("ACTIVE")
-  converted_at   DateTime?
-  crmTasks       CrmTask[]
-  branch         Branch?     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  manager        User?       @relation(fields: [manager_id], references: [id])
-  source         LeadSource? @relation(fields: [source_id], references: [id])
-  stage          LeadStage?  @relation(fields: [stage_id], references: [id])
-  tenant         Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student        Student?    @relation("LeadToStudent")
-  course_id      String?
-  course         Course?     @relation(fields: [course_id], references: [id])
+  id              String           @id @default(uuid())
+  tenant_id       String
+  name            String
+  phone           String
+  manager_id      String?
+  notes           String?
+  created_at      DateTime         @default(now())
+  branch_id       String?
+  source_id       String?
+  stage_id        String?
+  archive_reason  String?
+  status          String           @default("ACTIVE")
+  converted_at    DateTime?
+  crmTasks        CrmTask[]
+  branch          Branch?          @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  manager         User?            @relation(fields: [manager_id], references: [id])
+  source          LeadSource?      @relation(fields: [source_id], references: [id])
+  stage           LeadStage?       @relation(fields: [stage_id], references: [id])
+  tenant          Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student?         @relation("LeadToStudent")
+  course_id       String?
+  course          Course?          @relation(fields: [course_id], references: [id])
+  callCenterTasks CallCenterTask[]
 }
 
 model CrmTask {
@@ -980,9 +981,10 @@ model CallCenterTask {
   id            String    @id @default(uuid())
   tenant_id     String
   branch_id     String?
-  student_id    String
+  student_id    String?
+  lead_id       String?
   staff_id      String? // Operator who handled the call
-  type          String // 'DEBTOR', 'NEW_LEAD', 'ABSENTEE'
+  type          String // 'DEBTOR', 'NEW_LEAD', 'ABSENTEE', 'LEAD'
   status        String    @default("PENDING") // 'PENDING', 'CALLED', 'RESOLVED'
   last_call_at  DateTime?
   next_call_at  DateTime?
@@ -991,14 +993,16 @@ model CallCenterTask {
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
 
-  branch  Branch? @relation(fields: [branch_id], references: [id])
-  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  staff   User?   @relation(fields: [staff_id], references: [id])
-  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  branch  Branch?  @relation(fields: [branch_id], references: [id])
+  student Student? @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  lead    Lead?    @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  staff   User?    @relation(fields: [staff_id], references: [id])
+  tenant  Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@index([tenant_id])
   @@index([branch_id])
   @@index([student_id])
+  @@index([lead_id])
   @@index([staff_id])
   @@index([status])
 }

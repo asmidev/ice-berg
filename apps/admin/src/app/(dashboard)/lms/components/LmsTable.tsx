@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, Edit2, Trash2, Archive, MessageCircle, MoreVertical, Calendar as CalendarIcon, UserPlus, Users, CheckSquare } from 'lucide-react';
+import { MoreHorizontal, Edit2, Trash2, Archive, MessageCircle, MoreVertical, Calendar as CalendarIcon, UserPlus, Users, CheckSquare, Eye } from 'lucide-react';
 import { 
   Popover,
   PopoverContent,
@@ -27,6 +27,44 @@ const getProgressColor = (progress: number) => {
   if (progress < 70) return 'bg-warning';
   if (progress < 100) return 'bg-pink-500';
   return 'bg-navy-800';
+};
+
+const calculateRealProgress = (group: any) => {
+  if (!group.start_date || !group.end_date || !group.schedules?.length) {
+    return Math.round((group.current_stage / group.total_stages) * 100) || 0;
+  }
+  
+  const start = new Date(group.start_date);
+  const end = new Date(group.end_date);
+  const today = new Date();
+  
+  if (today < start) return 0;
+  if (today > end) return 100;
+  
+  const scheduledDays = group.schedules.map((s: any) => s.day_of_week);
+  
+  const countLessons = (fromDate: Date, toDate: Date) => {
+    let count = 0;
+    const current = new Date(fromDate.getTime());
+    current.setHours(0, 0, 0, 0);
+    const limit = new Date(toDate.getTime());
+    limit.setHours(23, 59, 59, 999);
+
+    while (current <= limit) {
+      const day = current.getDay();
+      const normalizedDay = day === 0 ? 7 : day;
+      if (scheduledDays.includes(normalizedDay)) {
+        count++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  };
+  
+  const totalLessons = countLessons(start, end);
+  const passedLessons = countLessons(start, today);
+  
+  return totalLessons > 0 ? Math.round((passedLessons / totalLessons) * 100) : 0;
 };
 
 export function LmsTable({ groups, isLoading, onEdit, onArchive, onDelete, onViewCalendar, onSms, onEnroll, onAttendance, onManageStudents }: LmsTableProps) {
@@ -74,7 +112,7 @@ export function LmsTable({ groups, isLoading, onEdit, onArchive, onDelete, onVie
           </thead>
           <tbody className="divide-y divide-gray-100">
             {groups.map((group) => {
-              const progress = Math.round((group.current_stage / group.total_stages) * 100) || 0;
+              const progress = calculateRealProgress(group);
               const studentsCount = group._count?.enrollments || 0;
               const teacherName = `${group.teacher?.user?.first_name || ''} ${group.teacher?.user?.last_name || ''}`.trim() || 'Tayinlanmagan';
               const startTime = group.schedules?.[0]?.start_time || '--:--';
@@ -161,13 +199,14 @@ export function LmsTable({ groups, isLoading, onEdit, onArchive, onDelete, onVie
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button 
-                         onClick={() => onAttendance?.(group)}
-                         className="h-8 w-8 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-600 transition-colors"
-                         title="Davomat qilish"
-                      >
-                        <CheckSquare size={16} />
-                      </button>
+                      <Link href={`/lms/groups/${group.id}`}>
+                        <button 
+                           className="h-8 w-8 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-600 transition-colors"
+                           title="Guruh sahifasi"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </Link>
                       <button 
                          onClick={() => onEnroll(group)}
                          className="h-8 w-8 rounded-lg hover:bg-cyan-50 flex items-center justify-center text-cyan-600 transition-colors"

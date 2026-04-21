@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, HttpException, HttpStatus } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('inventory')
 export class InventoryController {
@@ -7,48 +8,88 @@ export class InventoryController {
 
   // Categories
   @Get('categories')
+  @SetPermissions('inventory.products.view')
   async getCategories(@Req() req: any) {
-    return this.inventoryService.getCategories(req.user.tenantId);
+    try {
+      return await this.inventoryService.getCategories(req.user.tenantId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('categories')
+  @SetPermissions('inventory.products.create')
   async createCategory(@Req() req: any, @Body('name') name: string) {
-    return this.inventoryService.createCategory(req.user.tenantId, name);
+    try {
+      return await this.inventoryService.createCategory(req.user.tenantId, name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('categories/:id')
+  @SetPermissions('inventory.products.update')
   async updateCategory(@Req() req: any, @Param('id') id: string, @Body('name') name: string) {
-    return this.inventoryService.updateCategory(req.user.tenantId, id, name);
+    try {
+      return await this.inventoryService.updateCategory(req.user.tenantId, id, name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('categories/:id')
+  @SetPermissions('inventory.products.delete')
   async deleteCategory(@Req() req: any, @Param('id') id: string) {
-    return this.inventoryService.deleteCategory(req.user.tenantId, id);
+    try {
+      return await this.inventoryService.deleteCategory(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // Products
   @Get('products')
+  @SetPermissions('inventory.products.view')
   async getProducts(
     @Req() req: any,
     @Query('branch_id') branchId?: string,
     @Query('category_id') categoryId?: string,
     @Query('search') search?: string
   ) {
-    return this.inventoryService.getProducts(req.user.tenantId, branchId, { category_id: categoryId, search });
+    try {
+      return await this.inventoryService.getProducts(req.user.tenantId, branchId, { category_id: categoryId, search });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('products')
+  @SetPermissions('inventory.products.create')
   async createProduct(@Req() req: any, @Body() body: any) {
-    return this.inventoryService.createProduct(req.user.tenantId, body);
+    try {
+      return await this.inventoryService.createProduct(req.user.tenantId, body);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put('products/:id')
+  @SetPermissions('inventory.products.update')
   async updateProduct(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.inventoryService.updateProduct(req.user.tenantId, id, body);
+    try {
+      return await this.inventoryService.updateProduct(req.user.tenantId, id, body);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete('products/:id')
+  @SetPermissions('inventory.products.delete')
   async deleteProduct(@Req() req: any, @Param('id') id: string) {
-    return this.inventoryService.deleteProduct(req.user.tenantId, id);
+    try {
+      return await this.inventoryService.deleteProduct(req.user.tenantId, id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

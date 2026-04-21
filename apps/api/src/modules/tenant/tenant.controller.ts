@@ -10,13 +10,13 @@ export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
   @Get('settings')
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'super-admin', 'super_admin', 'bosh-admin', 'bosh_admin')
   async getSettings(@Request() req) {
     return this.tenantService.getSettings(req.user.tenantId);
   }
 
   @Put('settings')
-  @Roles('SUPER_ADMIN')
+  @Roles('SUPER_ADMIN', 'super-admin', 'super_admin', 'bosh-admin', 'bosh_admin')
   async updateSettings(@Request() req, @Body() settings: any) {
     return this.tenantService.updateSettings(req.user.tenantId, settings);
   }

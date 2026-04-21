@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState, useMemo } from 'react'
 
 // MENUS DATA
 const MENU_ITEMS = [
@@ -243,10 +243,12 @@ function BranchSwitcher({
 	branches,
 	activeId,
 	onSelect,
+	isSuperAdmin,
 }: {
 	branches: any[]
 	activeId: string
 	onSelect: (id: string) => void
+	isSuperAdmin?: boolean
 }) {
 	const [isOpen, setIsOpen] = useState(false)
 	const dropdownRef = useRef<HTMLDivElement>(null)
@@ -291,20 +293,22 @@ function BranchSwitcher({
 						</p>
 					</div>
 					<div className='max-h-[300px] overflow-y-auto p-1.5 custom-scrollbar'>
-						<button
-							onClick={() => {
-								onSelect('all')
-								setIsOpen(false)
-							}}
-							className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all mb-1 ${activeId === 'all' ? 'bg-pink-50 text-pink-500 font-bold' : 'hover:bg-gray-50 text-gray-600 font-medium'}`}
-						>
-							<div
-								className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeId === 'all' ? 'bg-white shadow-sm' : 'bg-gray-100'}`}
+						{isSuperAdmin && (
+							<button
+								onClick={() => {
+									onSelect('all')
+									setIsOpen(false)
+								}}
+								className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all mb-1 ${activeId === 'all' ? 'bg-pink-50 text-pink-500 font-bold' : 'hover:bg-gray-50 text-gray-600 font-medium'}`}
 							>
-								🏢
-							</div>
-							<span>Barcha Filiallar</span>
-						</button>
+								<div
+									className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeId === 'all' ? 'bg-white shadow-sm' : 'bg-gray-100'}`}
+								>
+									🏢
+								</div>
+								<span>Barcha Filiallar</span>
+							</button>
+						)}
 						{branches.map(b => (
 							<button
 								key={b.id}
@@ -431,6 +435,35 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 		window.location.href = '/login'
 	}
 
+	const isSuperAdmin = useMemo(() => {
+		const r = user.role?.toLowerCase() || ''
+		return r === 'super-admin' || r === 'super_admin' || r === 'bosh_admin' || r === 'bosh-admin' || r === 'super admin' || r === 'bosh admin'
+	}, [user.role])
+
+	const filteredMenu = useMemo(() => {
+		return MENU_ITEMS.map(item => {
+			if (item.name === 'Sozlamalar') {
+				const newChildren = item.children?.map(child => {
+					if (child.name === 'Ofis') {
+						if (isSuperAdmin) {
+							return child
+						}
+						// Agar super admin bo'lmasa, Lavozim va Xodimlarni olib tashlash
+						return {
+							...child,
+							children: child.children?.filter(
+								(c: any) => c.name !== 'Lavozimlar' && c.name !== 'Xodimlar'
+							),
+						}
+					}
+					return child
+				})
+				return { ...item, children: newChildren }
+			}
+			return item
+		})
+	}, [user.role, isSuperAdmin])
+
 	// Get Page Title from Menu
 	const getPageInfo = () => {
 		let title = 'Bosh sahifa'
@@ -490,7 +523,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
 				{/* Navigation */}
 				<nav className='flex-1 overflow-y-auto px-3 py-4 custom-scrollbar'>
-					{MENU_ITEMS.map((item, idx) => (
+					{filteredMenu.map((item: any, idx: number) => (
 						<SidebarItem key={item.name + idx} item={item} />
 					))}
 				</nav>
@@ -578,7 +611,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 						<div className='flex items-center gap-3'>
 							<BranchSwitcher
 								branches={
-									user.role === 'super-admin'
+									isSuperAdmin
 										? branches
 										: branches.filter(b =>
 												user.branches?.some(ub => ub.id === b.id),
@@ -586,6 +619,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 								}
 								activeId={branchId}
 								onSelect={handleBranchSelect}
+								isSuperAdmin={isSuperAdmin}
 							/>
 
 							<div className='flex items-center gap-2'>

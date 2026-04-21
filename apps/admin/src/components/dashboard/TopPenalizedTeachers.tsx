@@ -51,7 +51,7 @@ export const TopPenalizedTeachers: React.FC<TopPenalizedTeachersProps> = ({ teac
               <div className="text-right">
                 <div className="flex items-center justify-end gap-1 text-red-500 font-black text-sm">
                   <TrendingDown className="w-3 h-3" />
-                  {t.totalAmount.toLocaleString()}
+                  {(t.totalAmount || 0).toLocaleString()}
                 </div>
                 <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">Umumiy Chegirma</div>
               </div>

@@ -1,46 +1,62 @@
-import { Controller, Get, Post, Body, Query, Req } from '@nestjs/common';
-// Trigger reload after prisma generate
+import { Controller, Get, Post, Body, Query, Req, HttpException, HttpStatus } from '@nestjs/common';
 import { StaffAttendanceService } from './staff-attendance.service';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('staff-attendance')
 export class StaffAttendanceController {
   constructor(private readonly service: StaffAttendanceService) {}
 
   @Get('list')
+  @SetPermissions('staff.view')
   async getStaffList(
     @Req() req: any,
     @Query('branch_id') branchId: string,
     @Query('date') date: string,
     @Query('type') type: 'staff' | 'teacher'
   ) {
-    if (type === 'teacher') {
-      return this.service.getTeacherAttendance(req.user.tenantId, branchId, date);
+    try {
+      if (type === 'teacher') {
+        return await this.service.getTeacherAttendance(req.user.tenantId, branchId, date);
+      }
+      return await this.service.getStaffAttendance(req.user.tenantId, branchId, date);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    return this.service.getStaffAttendance(req.user.tenantId, branchId, date);
   }
 
   @Post('mark')
+  @SetPermissions('staff.update')
   async markAttendance(
     @Req() req: any,
     @Body() data: any
   ) {
-    const { type, ...rest } = data;
-    if (type === 'teacher') {
-      return this.service.markTeacherAttendanceDaily(req.user.tenantId, rest);
+    try {
+      const { type, ...rest } = data;
+      if (type === 'teacher') {
+        return await this.service.markTeacherAttendanceDaily(req.user.tenantId, rest);
+      }
+      return await this.service.markStaffAttendance(req.user.tenantId, { ...rest, branchId: data.branchId });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    return this.service.markStaffAttendance(req.user.tenantId, { ...rest, branchId: data.branchId });
   }
 
   @Get('stats')
+  @SetPermissions('staff.view')
   async getStats(
     @Req() req: any,
     @Query('branch_id') branchId: string,
     @Query('date') date: string
   ) {
-    return this.service.getAttendanceStats(req.user.tenantId, branchId, date);
+    try {
+      return await this.service.getAttendanceStats(req.user.tenantId, branchId, date);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('monthly')
+  @SetPermissions('staff.view')
   async getMonthly(
     @Req() req: any,
     @Query('type') type: 'staff' | 'teacher',
@@ -48,7 +64,11 @@ export class StaffAttendanceController {
     @Query('year') year: string,
     @Query('month') month: string
   ) {
-    if (!personId) return [];
-    return this.service.getMonthlyAttendance(req.user.tenantId, type, personId, parseInt(year), parseInt(month));
+    try {
+      if (!personId) return [];
+      return await this.service.getMonthlyAttendance(req.user.tenantId, type, personId, parseInt(year), parseInt(month));
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

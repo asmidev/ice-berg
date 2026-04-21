@@ -37,6 +37,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('personal'); 
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const [formData, setFormData] = useState({
@@ -68,21 +69,26 @@ export default function ProfilePage() {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
+        const r = (user.role?.slug || user.role || '').toLowerCase();
+        const superAdmin = r === 'super-admin' || r === 'super_admin' || r === 'bosh_admin' || r === 'bosh-admin' || r === 'super admin' || r === 'bosh admin';
+        setIsSuperAdmin(superAdmin);
+
         setFormData({
           firstName: user.first_name || user.firstName || '',
           lastName: user.last_name || user.lastName || '',
           phone: user.phone || '',
           email: user.email || (user.phone ? `${user.phone.replace('+', '')}@edutizim.uz` : ''),
-          role: user.role === 'SUPER_ADMIN' ? 'Super Admin' : user.role || 'Admin',
+          role: superAdmin ? 'Super Admin' : user.role || 'Admin',
         });
+        
+        if (superAdmin) {
+          fetchSettings();
+        }
       } catch (e) {
         console.error(e);
       }
     }
     fetchBranches();
-    if (userStr && JSON.parse(userStr).role === 'SUPER_ADMIN') {
-      fetchSettings();
-    }
   }, []);
 
   const fetchBranches = async () => {
@@ -124,7 +130,9 @@ export default function ProfilePage() {
       setSuccessMsg("Tizim sozlamalari saqlandi!");
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Xatolik yuz berdi");
+      const errorData = err.response?.data?.message || "Xatolik yuz berdi";
+      const errorMessage = typeof errorData === 'object' ? (Array.isArray(errorData) ? errorData.join(', ') : (errorData.message || JSON.stringify(errorData))) : String(errorData);
+      setErrorMsg(errorMessage);
       setTimeout(() => setErrorMsg(''), 3000);
     } finally {
       setLoading(false);
@@ -150,7 +158,9 @@ export default function ProfilePage() {
       setSuccessMsg("Profil ma'lumotlari saqlandi!");
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Xatolik yuz berdi");
+      const errorData = err.response?.data?.message || "Xatolik yuz berdi";
+      const errorMessage = typeof errorData === 'object' ? (Array.isArray(errorData) ? errorData.join(', ') : (errorData.message || JSON.stringify(errorData))) : String(errorData);
+      setErrorMsg(errorMessage);
       setTimeout(() => setErrorMsg(''), 3000);
     } finally {
       setLoading(false);
@@ -175,7 +185,9 @@ export default function ProfilePage() {
       setSuccessMsg("Parol muvaffaqiyatli yangilandi!");
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Xatolik yuz berdi");
+      const errorData = err.response?.data?.message || "Xatolik yuz berdi";
+      const errorMessage = typeof errorData === 'object' ? (Array.isArray(errorData) ? errorData.join(', ') : (errorData.message || JSON.stringify(errorData))) : String(errorData);
+      setErrorMsg(errorMessage);
       setTimeout(() => setErrorMsg(''), 3000);
     } finally {
       setLoading(false);
@@ -276,15 +288,17 @@ export default function ProfilePage() {
               <span className="text-[14px] font-bold">Xavfsizlik</span>
               {activeTab === 'security' && <ChevronRight className="w-4 h-4 ml-auto" />}
             </button>
-            <button 
-              onClick={() => setActiveTab('branches')}
-              className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl transition-all ${activeTab === 'branches' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20 font-bold border-0' : 'text-zinc-500 hover:bg-white hover:text-zinc-900 bg-transparent border-0'}`}
-            >
-              <Store className="w-5 h-5" />
-              <span className="text-[14px] font-bold">Filiallar</span>
-              {activeTab === 'branches' && <ChevronRight className="w-4 h-4 ml-auto" />}
-            </button>
-            {formData.role === 'Super Admin' && (
+            {isSuperAdmin && (
+              <button 
+                onClick={() => setActiveTab('branches')}
+                className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl transition-all ${activeTab === 'branches' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20 font-bold border-0' : 'text-zinc-500 hover:bg-white hover:text-zinc-900 bg-transparent border-0'}`}
+              >
+                <Store className="w-5 h-5" />
+                <span className="text-[14px] font-bold">Filiallar</span>
+                {activeTab === 'branches' && <ChevronRight className="w-4 h-4 ml-auto" />}
+              </button>
+            )}
+            {isSuperAdmin && (
               <button 
                 onClick={() => setActiveTab('settings')}
                 className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl transition-all ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20 font-bold border-0' : 'text-zinc-500 hover:bg-white hover:text-zinc-900 bg-transparent border-0'}`}
@@ -442,7 +456,7 @@ export default function ProfilePage() {
                </div>
             )}
 
-            {activeTab === 'branches' && (
+            {activeTab === 'branches' && isSuperAdmin && (
                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                   <Card className="border-0 shadow-2xl shadow-zinc-200/40 rounded-[2.5rem] overflow-hidden">
                     <CardHeader className="p-8 border-b border-zinc-100 bg-zinc-50/30">
@@ -503,7 +517,7 @@ export default function ProfilePage() {
                </div>
             )}
 
-            {activeTab === 'settings' && formData.role === 'Super Admin' && (
+            {activeTab === 'settings' && isSuperAdmin && (
                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                   <Card className="border-0 shadow-2xl shadow-zinc-200/40 rounded-[2.5rem] overflow-hidden">
                     <CardHeader className="p-8 border-b border-zinc-100 bg-zinc-50/30">
@@ -516,9 +530,14 @@ export default function ProfilePage() {
                              <div className="space-y-2">
                                 <Label className="text-[11px] font-black text-zinc-400 uppercase ml-1">Davomat jarimasi (so'mda)</Label>
                                 <Input 
-                                  type="number"
-                                  value={tenantSettings.attendance_penalty_amount} 
-                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTenantSettings({...tenantSettings, attendance_penalty_amount: Number(e.target.value)})}
+                                  type="text"
+                                  value={tenantSettings.attendance_penalty_amount === 0 ? '' : tenantSettings.attendance_penalty_amount.toLocaleString('en-US')} 
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      if (!isNaN(Number(rawValue))) {
+                                          setTenantSettings({...tenantSettings, attendance_penalty_amount: Number(rawValue)});
+                                      }
+                                  }}
                                   required
                                   className="h-14 rounded-2xl bg-zinc-50/50 border-zinc-200 focus:bg-white focus:ring-4 focus:ring-blue-100 text-zinc-900 font-bold border outline-none"
                                 />

@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import InteractionModal from './components/InteractionModal';
 import { cn } from '@/lib/utils';
 
-type TabType = 'DEBTOR' | 'NEW_LEAD' | 'ABSENTEE';
+type TabType = 'DEBTOR' | 'NEW_LEAD' | 'ABSENTEE' | 'LEAD';
 
 export default function CallCenterPage() {
   const { branchId, isReady } = useBranch();
@@ -35,7 +35,8 @@ export default function CallCenterPage() {
       const endpointMap = {
         'DEBTOR': '/call-center/debtors',
         'NEW_LEAD': '/call-center/new-leads',
-        'ABSENTEE': '/call-center/absentees'
+        'ABSENTEE': '/call-center/absentees',
+        'LEAD': '/call-center/leads'
       };
       
       const res = await api.get(`${endpointMap[activeTab]}?branch_id=${branchId}&search=${search}&page=${page}&limit=20`);
@@ -55,7 +56,8 @@ export default function CallCenterPage() {
   const stats = [
     { title: 'Qarzdorlar', type: 'DEBTOR', icon: Wallet, color: 'rose' },
     { title: 'Yangi o\'quvchilar', type: 'NEW_LEAD', icon: Users, color: 'blue' },
-    { title: 'Dars qoldirganlar', type: 'ABSENTEE', icon: AlertCircle, color: 'amber' }
+    { title: 'Dars qoldirganlar', type: 'ABSENTEE', icon: AlertCircle, color: 'amber' },
+    { title: 'Lidlar (CRM)', type: 'LEAD', icon: User2, color: 'pink' }
   ];
 
   return (
@@ -103,6 +105,20 @@ export default function CallCenterPage() {
             {activeTab === 'ABSENTEE' ? meta.total : '...'}
           </h3>
           <p className="text-[12px] text-white/60 mt-1">Muzlatilgan o'quvchilar</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-[#ec4899] to-[#be185d] rounded-[12px] p-5 text-white shadow-lg overflow-hidden relative group md:hidden lg:block">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full transition-transform group-hover:scale-125 duration-500" />
+          <div className="relative z-10 flex items-center gap-4 mb-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <User2 size={20} />
+            </div>
+            <p className="text-[13px] font-medium text-white/70">CRM Lidlar</p>
+          </div>
+          <h3 className="text-[28px] font-bold relative z-10">
+            {activeTab === 'LEAD' ? meta.total : '...'}
+          </h3>
+          <p className="text-[12px] text-white/60 mt-1">Aylanmagan lidlar</p>
         </div>
       </div>
 
@@ -163,7 +179,7 @@ export default function CallCenterPage() {
                 <th className="py-4 px-4">O'quvchi</th>
                 <th className="py-4 px-4">Aloqa</th>
                 <th className="py-4 px-4">
-                  {activeTab === 'DEBTOR' ? 'Qarzdorlik' : activeTab === 'NEW_LEAD' ? 'Guruhlar' : 'Holat'}
+                  {activeTab === 'DEBTOR' ? 'Qarzdorlik' : (activeTab === 'NEW_LEAD' || activeTab === 'LEAD') ? 'Kurs/Guruh' : 'Holat'}
                 </th>
                 <th className="py-4 px-4">Xodim</th>
                 <th className="py-4 px-4">Oxirgi aloqa</th>
@@ -244,7 +260,7 @@ export default function CallCenterPage() {
                             ))}
                           </div>
                         </div>
-                      ) : activeTab === 'NEW_LEAD' ? (
+                      ) : activeTab === 'NEW_LEAD' || activeTab === 'LEAD' ? (
                         <div className="flex flex-col gap-1">
                           {student.enrollments?.length > 0 ? (
                             <span className="text-[12px] font-medium text-gray-600 flex items-center gap-1.5">
@@ -253,7 +269,7 @@ export default function CallCenterPage() {
                               {student.enrollments.length > 1 && <span className="text-[10px] text-gray-400">(+{student.enrollments.length - 1})</span>}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-gray-300 italic">Gruppa yo'q</span>
+                            <span className="text-[11px] text-gray-300 italic">Ma'lumot yo'q</span>
                           )}
                         </div>
                       ) : (

@@ -24,14 +24,18 @@ export class PermissionsGuard implements CanActivate {
       return false;
     }
 
+    const roleRaw = user.roleSlug || user.role?.slug || (typeof user.role === 'string' ? user.role : '');
+    const roleSlug = (roleRaw || '').toLowerCase();
+
     // Super Admin has all permissions bypass
-    if (user.roleSlug === 'super-admin') {
+    if (roleSlug === 'super-admin' || roleSlug === 'super_admin' || roleSlug === 'bosh_admin' || roleSlug === 'bosh-admin' || roleSlug === 'super admin') {
       return true;
     }
 
     // Check if user has ALL required permissions
+    const userPermissions = user.permissions || [];
     const hasPermission = requiredPermissions.every((permission) =>
-      user.permissions?.includes(permission),
+      userPermissions.includes(permission),
     );
 
     if (!hasPermission) {

@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, Req, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { TeachersService } from './teachers.service';
+import { SetPermissions } from '../../common/decorators/permissions.decorator';
 
 @Controller('teachers')
 export class TeachersController {
@@ -11,72 +12,142 @@ export class TeachersController {
   }
 
   @Get('archive-stats')
-  getArchiveStats(@Req() req: any, @Query('branch_id') branchId: string) {
-    return this.teachersService.getArchiveStats(req.user?.tenantId || 'test-tenant-123', branchId);
+  @SetPermissions('teachers.view')
+  async getArchiveStats(@Req() req: any, @Query('branch_id') branchId: string) {
+    try {
+      return await this.teachersService.getArchiveStats(req.user?.tenantId || 'test-tenant-123', branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('archive-reasons')
-  getArchiveReasons(@Req() req: any) {
-    return this.teachersService.getArchiveReasons(req.user?.tenantId || 'test-tenant-123');
+  @SetPermissions('teachers.view')
+  async getArchiveReasons(@Req() req: any) {
+    try {
+      return await this.teachersService.getArchiveReasons(req.user?.tenantId || 'test-tenant-123');
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('archive-reasons')
-  createArchiveReason(@Req() req: any, @Body() body: { name: string }) {
-    return this.teachersService.createArchiveReason(req.user?.tenantId || 'test-tenant-123', body.name);
+  @SetPermissions('teachers.create', 'teachers.update')
+  async createArchiveReason(@Req() req: any, @Body() body: { name: string }) {
+    try {
+      return await this.teachersService.createArchiveReason(req.user?.tenantId || 'test-tenant-123', body.name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('specializations')
-  getSpecializations(@Req() req: any) {
-    return this.teachersService.getSpecializations(req.user?.tenantId || 'test-tenant-123');
+  @SetPermissions('teachers.view')
+  async getSpecializations(@Req() req: any) {
+    try {
+      return await this.teachersService.getSpecializations(req.user?.tenantId || 'test-tenant-123');
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post('specializations')
-  createSpecialization(@Req() req: any, @Body() body: { name: string }) {
-    return this.teachersService.createSpecialization(req.user?.tenantId || 'test-tenant-123', body.name);
+  @SetPermissions('teachers.create')
+  async createSpecialization(@Req() req: any, @Body() body: { name: string }) {
+    try {
+      return await this.teachersService.createSpecialization(req.user?.tenantId || 'test-tenant-123', body.name);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('stats')
-  getTeacherStats(@Req() req: any, @Query('branch_id') branchId?: string) {
-    return this.teachersService.getTeacherStats(req.user?.tenantId || 'test-tenant-123', branchId);
+  @SetPermissions('teachers.view')
+  async getTeacherStats(@Req() req: any, @Query('branch_id') branchId?: string) {
+    try {
+      return await this.teachersService.getTeacherStats(req.user?.tenantId || 'test-tenant-123', branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get()
-  getTeachers(@Req() req: any, @Query('branch_id') branchId?: string, @Query() query?: any) {
-    return this.teachersService.getTeachers(req.user?.tenantId || 'test-tenant-123', branchId, query);
+  @SetPermissions('teachers.view')
+  async getTeachers(@Req() req: any, @Query('branch_id') branchId?: string, @Query() query?: any) {
+    try {
+      return await this.teachersService.getTeachers(req.user?.tenantId || 'test-tenant-123', branchId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get(':id')
-  getTeacherById(@Req() req: any, @Param('id') id: string, @Query('branch_id') branchId?: string) {
-    return this.teachersService.getTeacherById(req.user?.tenantId || 'test-tenant-123', id, branchId);
+  @SetPermissions('teachers.view')
+  async getTeacherById(@Req() req: any, @Param('id') id: string, @Query('branch_id') branchId?: string) {
+    try {
+      return await this.teachersService.getTeacherById(req.user?.tenantId || 'test-tenant-123', id, branchId);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post()
-  createTeacher(@Req() req: any, @Body() data: any) {
-    return this.teachersService.createTeacher(req.user?.tenantId || 'test-tenant-123', data);
+  @SetPermissions('teachers.create')
+  async createTeacher(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.teachersService.createTeacher(req.user?.tenantId || 'test-tenant-123', data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id')
-  updateTeacher(@Req() req: any, @Param('id') id: string, @Body() data: any) {
-    return this.teachersService.updateTeacher(req.user?.tenantId || 'test-tenant-123', id, data);
+  @SetPermissions('teachers.update')
+  async updateTeacher(@Req() req: any, @Param('id') id: string, @Body() data: any) {
+    try {
+      return await this.teachersService.updateTeacher(req.user?.tenantId || 'test-tenant-123', id, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Post(':id/attendance')
-  markAttendance(@Req() req: any, @Param('id') id: string, @Body() data: any) {
-    return this.teachersService.markTeacherAttendance(req.user?.tenantId || 'test-tenant-123', { ...data, teacher_id: id });
+  @SetPermissions('teachers.update')
+  async markAttendance(@Req() req: any, @Param('id') id: string, @Body() data: any) {
+    try {
+      return await this.teachersService.markTeacherAttendance(req.user?.tenantId || 'test-tenant-123', { ...data, teacher_id: id });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id/archive')
-  archiveTeacher(@Req() req: any, @Param('id') id: string, @Body() body: { reason: string }) {
-    return this.teachersService.archiveTeacher(req.user?.tenantId || 'test-tenant-123', id, body.reason);
+  @SetPermissions('teachers.update')
+  async archiveTeacher(@Req() req: any, @Param('id') id: string, @Body() body: { reason: string }) {
+    try {
+      return await this.teachersService.archiveTeacher(req.user?.tenantId || 'test-tenant-123', id, body.reason);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Put(':id/restore')
-  restoreTeacher(@Req() req: any, @Param('id') id: string) {
-    return this.teachersService.restoreTeacher(req.user?.tenantId || 'test-tenant-123', id);
+  @SetPermissions('teachers.update')
+  async restoreTeacher(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.teachersService.restoreTeacher(req.user?.tenantId || 'test-tenant-123', id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Delete(':id')
-  deleteTeacher(@Req() req: any, @Param('id') id: string) {
-    return this.teachersService.deleteTeacher(req.user?.tenantId || 'test-tenant-123', id);
+  @SetPermissions('teachers.delete')
+  async deleteTeacher(@Req() req: any, @Param('id') id: string) {
+    try {
+      return await this.teachersService.deleteTeacher(req.user?.tenantId || 'test-tenant-123', id);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }
