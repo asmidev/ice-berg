@@ -34,6 +34,7 @@ export default function CrmBoardPage() {
   const [stages, setStages] = useState<any[]>([]);
   const [sources, setSources] = useState<any[]>([]);
   const [archiveReasons, setArchiveReasons] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
@@ -50,7 +51,7 @@ export default function CrmBoardPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [archiveModal, setArchiveModal] = useState({ isOpen: false, leadId: '', reason: '', newCustomReason: '' });
-  const [newLeadData, setNewLeadData] = useState({ name: '', phone: '+998', sourceId: '', stageId: '', newCustomSource: '' });
+  const [newLeadData, setNewLeadData] = useState({ name: '', phone: '+998', sourceId: '', stageId: '', newCustomSource: '', courseId: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -75,12 +76,13 @@ export default function CrmBoardPage() {
       const startStr = start.toISOString().split('T')[0];
       const endStr = end.toISOString().split('T')[0];
 
-      const [leadsRes, stagesRes, sourcesRes, reasonsRes, statsRes] = await Promise.all([
+      const [leadsRes, stagesRes, sourcesRes, reasonsRes, statsRes, coursesRes] = await Promise.all([
         api.get(`/crm/leads?branch_id=${branchId}&search=${search}&startDate=${startStr}&endDate=${endStr}&limit=100`),
         api.get('/crm/stages'),
         api.get('/crm/sources'),
         api.get('/crm/archive-reasons'),
-        api.get(`/analytics/dashboard?branch_id=${branchId}&startDate=${startStr}&endDate=${endStr}`)
+        api.get(`/analytics/dashboard?branch_id=${branchId}&startDate=${startStr}&endDate=${endStr}`),
+        api.get(`/lms/courses?branch_id=${branchId}`)
       ]);
       
       const stagesRaw = stagesRes.data?.data || stagesRes.data || [];
@@ -116,6 +118,7 @@ export default function CrmBoardPage() {
       );
       setSources(uniqueSources);
       setArchiveReasons(reasonsRes.data?.data || []);
+      setCourses(coursesRes.data?.data || coursesRes.data || []);
       
       const dashboardData = statsRes.data?.data || statsRes.data;
       setStats({
@@ -262,7 +265,7 @@ export default function CrmBoardPage() {
           </div>
 
           <Button 
-            onClick={() => { setNewLeadData({ name: '', phone: '+998', sourceId: sources[0]?.id || '', stageId: stages[0]?.id || '', newCustomSource: '' }); setIsModalOpen(true); }}
+            onClick={() => { setNewLeadData({ name: '', phone: '+998', sourceId: sources[0]?.id || '', stageId: stages[0]?.id || '', newCustomSource: '', courseId: '' }); setIsModalOpen(true); }}
             className="h-11 bg-pink-500 hover:bg-pink-600 text-white font-black rounded-xl px-6 shadow-lg shadow-pink-200 border-none"
           >
             <Plus className="w-4.5 h-4.5 mr-2" /> LID QO'SHISH
@@ -376,6 +379,13 @@ export default function CrmBoardPage() {
                        <div className="flex flex-col gap-1.5">
                           <label className="text-[13px] font-medium text-gray-700 ml-0.5">Telefon raqami <span className="text-red-500">*</span></label>
                           <input required type="text" value={newLeadData.phone} onChange={e => setNewLeadData({...newLeadData, phone: e.target.value})} className="h-[40px] w-full border border-gray-200 rounded-[8px] px-3 font-medium text-gray-900 focus:border-pink-500 focus:ring-[3px] focus:ring-pink-500/15 outline-none transition-all" />
+                       </div>
+                       <div className="flex flex-col gap-1.5">
+                          <label className="text-[13px] font-medium text-gray-700 ml-0.5">Kurs / Yo'nalish</label>
+                          <select value={newLeadData.courseId} onChange={e => setNewLeadData({...newLeadData, courseId: e.target.value})} className="h-[40px] w-full border border-gray-200 bg-white rounded-[8px] px-3 font-medium text-gray-900 outline-none focus:border-pink-500 transition-all cursor-pointer">
+                              <option value="">Tanlamaslik (Ixtiyoriy)</option>
+                              {courses.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
                        </div>
                        
                        <div className="grid grid-cols-2 gap-4">

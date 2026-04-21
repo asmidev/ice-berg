@@ -77,6 +77,7 @@ export default function FinanceDebtorsPage() {
   // Modals
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   
   // Forms
@@ -253,6 +254,23 @@ export default function FinanceDebtorsPage() {
     } catch (err) {
         console.error(err);
         showToast("Xatolik yuz berdi", 'error');
+    } finally {
+        setSubmitting(false);
+    }
+  };
+
+  const handleDeleteDebt = async () => {
+    if (!selectedStudent) return;
+    setSubmitting(true);
+    try {
+        await api.delete(`/finance/debtors/${selectedStudent.id}/debts`);
+        showToast("Qarz muvaffaqiyatli o'chirildi", 'success');
+        setIsDeleteDialogOpen(false);
+        fetchData();
+    } catch (err: any) {
+        let errMsg = err.response?.data?.message || err.message || "Xatolik yuz berdi";
+        if (typeof errMsg === 'object') errMsg = errMsg.message || JSON.stringify(errMsg);
+        showToast(errMsg, 'error');
     } finally {
         setSubmitting(false);
     }
@@ -521,6 +539,13 @@ export default function FinanceDebtorsPage() {
                        >
                           <Wallet size={14} />
                        </button>
+                       <button 
+                         onClick={() => { setSelectedStudent(d); setIsDeleteDialogOpen(true); }}
+                         className="w-8 h-8 rounded-lg border border-zinc-200 text-red-500 flex items-center justify-center hover:bg-red-50 shadow-sm"
+                         title="Qarzni butunlay o'chirish"
+                       >
+                          <Trash2 size={14} />
+                       </button>
                     </div>
                   </td>
                 </tr>
@@ -685,6 +710,26 @@ export default function FinanceDebtorsPage() {
             </div>
          </DialogContent>
       </Dialog>
+
+       {/* --- DELETE DEBT CONFIRM MODAL --- */}
+       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[400px] rounded-[1.5rem] p-10 border-none shadow-2xl bg-white border border-zinc-50">
+             <DialogHeader className="items-center space-y-3 mb-6 text-center">
+                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
+                   <Trash2 size={32} />
+                </div>
+                <DialogTitle className="text-xl font-bold text-[#344767]">Qarzni o'chirish</DialogTitle>
+                <DialogDescription className="text-[13px] text-zinc-500 font-medium">
+                   <strong className="text-zinc-800">{selectedStudent?.user?.first_name} {selectedStudent?.user?.last_name}</strong> talabaning barcha to'lanmagan qarzlari bazadan o'chiriladi va hisobi nollashtiriladi. Buni ortga qaytarib bo'lmaydi. Rozimisiz?
+                </DialogDescription>
+             </DialogHeader>
+
+             <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="h-12 rounded-xl font-bold flex-1 border-zinc-100">Bekor qilish</Button>
+                <Button onClick={handleDeleteDebt} disabled={submitting} className="h-12 rounded-xl font-bold bg-red-500 hover:bg-red-600 text-white flex-1 border-none transition-all shadow-md shadow-red-500/20">Ha, o'chirish</Button>
+             </div>
+          </DialogContent>
+       </Dialog>
     </div>
   );
 }

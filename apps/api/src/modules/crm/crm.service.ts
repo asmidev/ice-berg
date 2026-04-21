@@ -19,6 +19,7 @@ export class CrmService {
       const branchId = data.branchId || data.branch_id || null;
       const sourceId = data.sourceId || data.source_id || null;
       const managerId = data.managerId || data.manager_id || null;
+      const courseId = data.courseId || data.course_id || null;
 
       return await this.prisma.lead.create({
         data: {
@@ -30,6 +31,7 @@ export class CrmService {
           stage_id: stageId,
           manager_id: managerId,
           notes: data.notes,
+          course_id: courseId,
         },
       });
     } catch (err: any) {
@@ -123,7 +125,8 @@ export class CrmService {
           manager: { select: { id: true, first_name: true, last_name: true, phone: true } },
           stage: true,
           source: true,
-          branch: { select: { id: true, name: true } }
+          branch: { select: { id: true, name: true } },
+          course: { select: { id: true, name: true } }
         },
         skip,
         take: limit

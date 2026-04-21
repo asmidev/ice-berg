@@ -250,6 +250,49 @@ export class LmsService {
     });
   }
 
+  async getGroupById(tenantId: string, groupId: string) {
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId, tenant_id: tenantId },
+      include: {
+        course: true,
+        room: true,
+        branch: { select: { id: true, name: true, settings: true } },
+        teacher: { include: { user: { select: { id: true, first_name: true, last_name: true, photo_url: true, phone: true } } } },
+        support_teacher: { include: { user: { select: { id: true, first_name: true, last_name: true, photo_url: true, phone: true } } } },
+        schedules: { include: { room: true } },
+        exams: { include: { grades: true } },
+        assignments: { include: { submissions: true } },
+        enrollments: {
+          where: { status: { not: 'ARCHIVED' } },
+          include: { 
+             student: { 
+               include: { 
+                 user: { select: { id: true, first_name: true, last_name: true, photo_url: true, phone: true } },
+                 invoices: {
+                   where: { status: { in: ['UNPAID', 'PARTIAL'] } }
+                 },
+                 discounts: {
+                   include: { discount: true }
+                 }
+               } 
+             } 
+          }
+        }
+      }
+    });
+
+    if (!group) throw new HttpException('Guruh topilmadi', 404);
+
+    return group;
+  }
+
+  async updateGroupDescription(tenantId: string, groupId: string, description: string) {
+    return this.prisma.group.update({
+      where: { id: groupId, tenant_id: tenantId },
+      data: { description }
+    });
+  }
+
   async nextStage(tenantId: string, groupId: string) {
     const group = await this.prisma.group.findFirst({
       where: { id: groupId, tenant_id: tenantId },
@@ -401,6 +444,26 @@ export class LmsService {
         archive_reason: null
       }
     });
+  }
+
+  async deleteGroup(tenantId: string, id: string) {
+    const group = await this.prisma.group.findUnique({
+      where: { id, tenant_id: tenantId },
+    });
+    
+    if (!group) throw new Error("Guruh topilmadi");
+
+    try {
+      await this.prisma.schedule.deleteMany({ where: { group_id: id } });
+      return await this.prisma.group.delete({
+        where: { id, tenant_id: tenantId },
+      });
+    } catch (err: any) {
+      if (err.code === 'P2003') {
+         throw new Error("Guruhga o'quvchilar yoki to'lovlar biriktirilganligi sababli o'chirib bo'lmaydi");
+      }
+      throw err;
+    }
   }
 
   private async validateSchedule(tenantId: string, branchId: string | null, schedules: any[], teacherId: string | null, supportTeacherId: string | null, currentGroupId?: string) {

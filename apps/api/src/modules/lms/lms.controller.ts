@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Req, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Req, Query, Param, Patch } from '@nestjs/common';
 import { LmsService } from './lms.service';
 
 @Controller('lms')
@@ -40,6 +40,11 @@ export class LmsController {
     return this.lmsService.updateGroup(req.user.tenantId, id, data);
   }
 
+  @Patch('groups/:id/description')
+  updateGroupDescription(@Req() req: any, @Param('id') id: string, @Body('description') description: string) {
+    return this.lmsService.updateGroupDescription(req.user.tenantId, id, description);
+  }
+
   @Get('groups')
   getGroups(@Req() req: any, @Query('branch_id') branchId?: string, @Query() query?: any) {
     return this.lmsService.getGroups(req.user.tenantId, branchId, query);
@@ -53,6 +58,11 @@ export class LmsController {
   @Post('groups/:id/restore')
   restoreGroup(@Req() req: any, @Param('id') id: string) {
     return this.lmsService.restoreGroup(req.user.tenantId, id);
+  }
+
+  @Delete('groups/:id')
+  deleteGroup(@Req() req: any, @Param('id') id: string) {
+    return this.lmsService.deleteGroup(req.user.tenantId, id);
   }
 
   @Post('groups/:id/next-stage')
@@ -73,6 +83,11 @@ export class LmsController {
   @Get('groups/archived')
   getArchivedGroups(@Req() req: any, @Query('branch_id') branchId?: string, @Query() query?: any) {
     return this.lmsService.getArchivedGroups(req.user.tenantId, branchId, query);
+  }
+
+  @Get('groups/:id')
+  getGroup(@Req() req: any, @Param('id') id: string) {
+    return this.lmsService.getGroupById(req.user.tenantId, id);
   }
 
   // --- Enrollment ---

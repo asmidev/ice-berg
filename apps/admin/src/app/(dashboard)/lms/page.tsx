@@ -65,8 +65,9 @@ export default function LmsDashboardPage() {
     if (isReady && branchId) fetchMeta(branchId);
   }, [branchId, isReady]);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ show: true, message, type });
+  const showToast = (message: any, type: 'success' | 'error' = 'success') => {
+    const safeMessage = typeof message === 'object' ? (message?.message || JSON.stringify(message)) : message;
+    setToast({ show: true, message: safeMessage, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   };
 

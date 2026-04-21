@@ -318,7 +318,8 @@ exports.Prisma.LeadScalarFieldEnum = {
   stage_id: 'stage_id',
   archive_reason: 'archive_reason',
   status: 'status',
-  converted_at: 'converted_at'
+  converted_at: 'converted_at',
+  course_id: 'course_id'
 };
 
 exports.Prisma.CrmTaskScalarFieldEnum = {

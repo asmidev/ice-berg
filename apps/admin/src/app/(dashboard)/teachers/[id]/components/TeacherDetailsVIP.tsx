@@ -379,15 +379,20 @@ export const TeacherPerformanceVIP = ({ performance }: { performance: any }) => 
 export const TeacherPenaltiesVIP = ({ penalties }: { penalties: any[] }) => (
   <Card className="p-8 border-none shadow-xl shadow-zinc-200/40 bg-white rounded-3xl mt-6">
      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-           <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center">
-              <ShieldAlert className="w-5 h-5 text-red-500" />
-           </div>
-           <h3 className="text-sm font-black text-gray-900 tracking-tight uppercase tracking-widest">Jarimalar tarixi</h3>
-        </div>
-        <div className="px-3 py-1 bg-red-50 text-red-500 text-[10px] font-black rounded-lg border border-red-100 uppercase tracking-widest">
-           {penalties?.length || 0} ta
-        </div>
+         <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center">
+               <ShieldAlert className="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+               <h3 className="text-sm font-black text-gray-900 tracking-tight uppercase tracking-widest">Jarimalar tarixi</h3>
+               <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">
+                  Umumiy: {penalties?.reduce((acc, curr) => acc + Number(curr.amount), 0).toLocaleString()} UZS
+               </p>
+            </div>
+         </div>
+         <div className="px-3 py-1 bg-red-50 text-red-500 text-[10px] font-black rounded-lg border border-red-100 uppercase tracking-widest">
+            {penalties?.length || 0} ta
+         </div>
      </div>
 
      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">

@@ -5,15 +5,21 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export class AttendanceService {
   constructor(private prisma: PrismaService) {}
 
-  async getGroupAttendanceDetails(groupId: string, date: string, tenantId: string) {
-    const attendanceDate = new Date(date);
-    attendanceDate.setHours(0, 0, 0, 0);
+  private parseDateSafe(dateStr: string) {
+    if (!dateStr) return new Date();
+    const [y, m, d] = dateStr.split('-').map(Number);
+    // Force UTC to prevent server timezone from shifting the date
+    return new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+  }
 
-    const group = await this.prisma.group.findUnique({
+  async getGroupAttendanceDetails(groupId: string, date: string, tenantId: string) {
+    const attendanceDate = this.parseDateSafe(date);
+    attendanceDate.setUTCHours(0, 0, 0, 0);
+
+    const group = await this.prisma.group.findFirst({
       where: { id: groupId, tenant_id: tenantId },
       include: {
         enrollments: {
-          where: { status: 'ACTIVE' },
           include: {
             student: {
               include: { user: true }
@@ -27,7 +33,7 @@ export class AttendanceService {
       }
     });
 
-    if (!group) throw new Error('Group not found');
+    if (!group) throw new Error('Guruh topilmadi');
 
     const students = group.enrollments.map(e => ({
       enrollmentId: e.id,
@@ -46,6 +52,100 @@ export class AttendanceService {
     };
   }
 
+  async getMonthlyGroupAttendance(groupId: string, month: number, year: number, tenantId: string) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const group = await this.prisma.group.findFirst({
+      where: { id: groupId, tenant_id: tenantId },
+      include: {
+        enrollments: {
+          where: { status: { not: 'ARCHIVED' } },
+          include: {
+            student: {
+              include: { user: true }
+            },
+            attendances: {
+              where: { date: { gte: startDate, lte: endDate } }
+            }
+          }
+        },
+        schedules: true
+      }
+    });
+
+    if (!group) throw new Error('Group not found');
+
+    const students = group.enrollments.map(e => ({
+      enrollmentId: e.id,
+      studentId: e.student_id,
+      name: `${e.student.user.first_name} ${e.student.user.last_name}`,
+      phone: e.student.user.phone,
+      attendances: e.attendances.map(a => ({
+        id: a.id,
+        date: a.date,
+        status: a.status,
+        score: a.score
+      }))
+    }));
+
+    return {
+      groupId: group.id,
+      month,
+      year,
+      schedules: group.schedules,
+      students
+    };
+  }
+
+  async getRangeGroupAttendance(groupId: string, startDate: string, endDate: string, tenantId: string) {
+    const start = this.parseDateSafe(startDate);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = this.parseDateSafe(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const group = await this.prisma.group.findFirst({
+      where: { id: groupId, tenant_id: tenantId },
+      include: {
+        enrollments: {
+          where: { status: { not: 'ARCHIVED' } },
+          include: {
+            student: {
+              include: { user: true }
+            },
+            attendances: {
+              where: { date: { gte: start, lte: end } }
+            }
+          }
+        },
+        schedules: true
+      }
+    });
+
+    if (!group) throw new Error('Group not found');
+
+    const students = group.enrollments.map(e => ({
+      enrollmentId: e.id,
+      studentId: e.student_id,
+      name: `${e.student.user.first_name} ${e.student.user.last_name}`,
+      phone: e.student.user.phone,
+      attendances: e.attendances.map(a => ({
+        id: a.id,
+        date: a.date,
+        status: a.status,
+        score: a.score
+      }))
+    }));
+
+    return {
+      groupId: group.id,
+      startDate,
+      endDate,
+      schedules: group.schedules,
+      students
+    };
+  }
+
   async markAttendance(data: {
     groupId: string;
     date: string;
@@ -53,11 +153,9 @@ export class AttendanceService {
     tenantId: string;
     markedBy?: string;
   }) {
-    const attendanceDate = new Date(data.date);
-    attendanceDate.setHours(0, 0, 0, 0);
-
-    // Get group schedule for this date (simplified: just use the first schedule if multiple exists for the day)
-    const dayOfWeek = attendanceDate.getDay();
+    const attendanceDate = this.parseDateSafe(data.date);
+    attendanceDate.setUTCHours(0, 0, 0, 0);
+    const dayOfWeek = attendanceDate.getUTCDay();
     const group = await this.prisma.group.findUnique({
       where: { id: data.groupId },
       include: { schedules: { where: { day_of_week: dayOfWeek } } }

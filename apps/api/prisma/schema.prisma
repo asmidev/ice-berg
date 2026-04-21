@@ -353,6 +353,8 @@ model Lead {
   stage          LeadStage?  @relation(fields: [stage_id], references: [id])
   tenant         Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   student        Student?    @relation("LeadToStudent")
+  course_id      String?
+  course         Course?     @relation(fields: [course_id], references: [id])
 }
 
 model CrmTask {
@@ -376,6 +378,7 @@ model Course {
   branch      Branch? @relation(fields: [branch_id], references: [id])
   tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   groups      Group[]
+  leads       Lead[]
 }
 
 model Group {

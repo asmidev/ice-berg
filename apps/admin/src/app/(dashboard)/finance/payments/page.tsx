@@ -534,33 +534,31 @@ export default function FinancePaymentsPage() {
                    <p className="text-sm font-black text-center mb-1">{branchSettings?.receipt_header || '⭐⭐⭐ ICE BERG ⭐⭐⭐'}</p>
                    <p className="text-[10px] font-bold uppercase text-center mb-4 text-gray-500">{branchSettings?.receipt_branch_name || printPayment?.branch?.name || 'ICE BERG FILIALI'}</p>
                    
-                   <div className="w-full border-t border-dashed border-gray-400 pt-3 mb-3 space-y-1">
-                      <div className="flex justify-between uppercase font-bold"><span>Kurs:</span> <span>{printPayment?.group?.course?.name || printPayment?.group?.name || 'KURS'}</span></div>
+                   <div className="w-full border-t border-dashed border-gray-400 pt-4 mb-3 space-y-1 text-center">
+                      <div className="font-black text-[13px] uppercase">{printPayment?.group?.name || 'Guruhsiz'}</div>
                       
                       {printPayment?.group?.start_date && printPayment?.group?.end_date ? (
-                          <div className="flex justify-between uppercase"><span>Davri:</span> <span className="text-[10px]">{new Date(printPayment.group.start_date).toLocaleDateString('uz-UZ')} - {new Date(printPayment.group.end_date).toLocaleDateString('uz-UZ')}</span></div>
+                          <div className="text-[11px] uppercase font-bold">{new Date(printPayment.group.start_date).toLocaleDateString('uz-UZ')} - {new Date(printPayment.group.end_date).toLocaleDateString('uz-UZ')}</div>
                       ) : printPayment?.paid_for_month ? (
-                          <div className="flex justify-between uppercase"><span>Oy:</span> <span className="text-[10px]">{printPayment.paid_for_month}</span></div>
+                          <div className="text-[11px] uppercase font-bold">{printPayment.paid_for_month} oyi uchun</div>
                       ) : (
-                          <div className="flex justify-between uppercase"><span>Davri:</span> <span className="text-[10px]">To'liq</span></div>
+                          <div className="text-[11px] uppercase font-bold">To'liq to'lov</div>
                       )}
                       
-                      <div className="w-full border-t border-gray-200 my-1" />
+                      <div className="text-[11px] uppercase font-bold mt-1">To'lov qilingan sana : {new Date(printPayment?.created_at || Date.now()).toLocaleDateString('uz-UZ')}</div>
+                      
+                      <div className="font-black text-[15px] pt-2 pb-2 uppercase">
+                         {new Intl.NumberFormat('uz-UZ').format(printPayment?.amount || 0)} UZS
+                      </div>
+                   </div>
+                   
+                   <div className="w-full border-t border-gray-400 pt-3 space-y-1">
                       <div className="flex justify-between uppercase"><span>Chek kodi:</span> <span className="font-black">#{printPayment?.id?.split('-')[0].toUpperCase()}</span></div>
-                      <div className="flex justify-between uppercase"><span>Sana:</span> <span>{new Date(printPayment?.created_at || Date.now()).toLocaleDateString('uz-UZ')}</span></div>
                       <div className="flex justify-between uppercase"><span>Mijoz:</span> <span>{printPayment?.student?.user?.first_name} {printPayment?.student?.user?.last_name}</span></div>
                       <div className="flex justify-between uppercase"><span>Kassir:</span> <span>{printPayment?.cashier?.first_name || 'Admin'}</span></div>
                    </div>
-                   
-                   <div className="w-full text-left mb-1">
-                      <p className="font-black uppercase tracking-wider underline underline-offset-2">To'lov ma'lumoti</p>
-                   </div>
-                   
-                   <div className="w-full space-y-3">
-                      <div className="flex justify-between items-center text-[12px] font-black">
-                         <span className="uppercase">Jami to'lov:</span>
-                         <span className="text-base">{new Intl.NumberFormat('uz-UZ').format(printPayment?.amount || 0)} UZS</span>
-                      </div>
+
+                   <div className="w-full space-y-3 mt-1">
                       
                       <div className="w-full border-t border-dashed border-gray-400 pt-3 text-center">
                          <p className="text-[10px] whitespace-pre-wrap leading-relaxed font-bold text-gray-500">

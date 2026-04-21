@@ -25,6 +25,7 @@ import {
 	Save,
 	Shield,
 	ShieldCheck,
+	Settings,
 	Store,
 	Trash2,
 	UserCircle,
@@ -56,6 +57,11 @@ export default function ProfilePage() {
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [isAddingBranch, setIsAddingBranch] = useState(false);
+  const [tenantSettings, setTenantSettings] = useState({
+    attendance_penalty_amount: 0,
+    attendance_penalty_wait_hours: 4,
+  });
+  const [loadingSettings, setLoadingSettings] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -74,6 +80,9 @@ export default function ProfilePage() {
       }
     }
     fetchBranches();
+    if (userStr && JSON.parse(userStr).role === 'SUPER_ADMIN') {
+      fetchSettings();
+    }
   }, []);
 
   const fetchBranches = async () => {
@@ -86,6 +95,39 @@ export default function ProfilePage() {
       console.error(e);
     } finally {
       setLoadingBranches(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      const res = await api.get('/tenant/settings');
+      const data = res.data?.data || res.data || {};
+      setTenantSettings({
+        attendance_penalty_amount: data.attendance_penalty_amount || 0,
+        attendance_penalty_wait_hours: data.attendance_penalty_wait_hours || 4,
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      await api.put('/tenant/settings', tenantSettings);
+      setSuccessMsg("Tizim sozlamalari saqlandi!");
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || "Xatolik yuz berdi");
+      setTimeout(() => setErrorMsg(''), 3000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -242,6 +284,16 @@ export default function ProfilePage() {
               <span className="text-[14px] font-bold">Filiallar</span>
               {activeTab === 'branches' && <ChevronRight className="w-4 h-4 ml-auto" />}
             </button>
+            {formData.role === 'Super Admin' && (
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl transition-all ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20 font-bold border-0' : 'text-zinc-500 hover:bg-white hover:text-zinc-900 bg-transparent border-0'}`}
+              >
+                <Settings className="w-5 h-5" />
+                <span className="text-[14px] font-bold">Tizim sozlamalari</span>
+                {activeTab === 'settings' && <ChevronRight className="w-4 h-4 ml-auto" />}
+              </button>
+            )}
          </div>
 
          {/* 📄 ACTIVE CONTENT */}
@@ -451,9 +503,53 @@ export default function ProfilePage() {
                </div>
             )}
 
+            {activeTab === 'settings' && formData.role === 'Super Admin' && (
+               <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                  <Card className="border-0 shadow-2xl shadow-zinc-200/40 rounded-[2.5rem] overflow-hidden">
+                    <CardHeader className="p-8 border-b border-zinc-100 bg-zinc-50/30">
+                       <CardTitle className="text-xl font-black text-zinc-900 leading-none">Tizim sozlamalari</CardTitle>
+                       <CardDescription className="text-zinc-400 font-bold text-xs mt-2 uppercase tracking-wide">Davomat va jarimalar qoidalarini boshqarish</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-10">
+                       <form onSubmit={handleSaveSettings} className="space-y-8">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <div className="space-y-2">
+                                <Label className="text-[11px] font-black text-zinc-400 uppercase ml-1">Davomat jarimasi (so'mda)</Label>
+                                <Input 
+                                  type="number"
+                                  value={tenantSettings.attendance_penalty_amount} 
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTenantSettings({...tenantSettings, attendance_penalty_amount: Number(e.target.value)})}
+                                  required
+                                  className="h-14 rounded-2xl bg-zinc-50/50 border-zinc-200 focus:bg-white focus:ring-4 focus:ring-blue-100 text-zinc-900 font-bold border outline-none"
+                                />
+                                <p className="text-[10px] text-zinc-400 font-bold ml-1">O'qituvchi o'z vaqtida davomat qilmasa qo'llaniladigan jarima miqdori.</p>
+                             </div>
+                             <div className="space-y-2">
+                                <Label className="text-[11px] font-black text-zinc-400 uppercase ml-1">Kutish vaqti (soatlarda)</Label>
+                                <Input 
+                                  type="number"
+                                  value={tenantSettings.attendance_penalty_wait_hours} 
+                                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTenantSettings({...tenantSettings, attendance_penalty_wait_hours: Number(e.target.value)})}
+                                  required
+                                  className="h-14 rounded-2xl bg-zinc-50/50 border-zinc-200 focus:bg-white focus:ring-4 focus:ring-blue-100 text-zinc-900 font-bold border outline-none"
+                                />
+                                <p className="text-[10px] text-zinc-400 font-bold ml-1">Dars tugaganidan keyin necha soat ichida davomat qilinishi shart.</p>
+                             </div>
+                          </div>
+
+                          <div className="flex justify-end pt-4">
+                             <Button disabled={loading} className="h-14 px-10 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg shadow-blue-600/20 transition-all border-0">
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sozlamalarni saqlash"}
+                             </Button>
+                          </div>
+                       </form>
+                    </CardContent>
+                  </Card>
+               </div>
+            )}
+
          </div>
       </div>
-
-    </div>
+   </div>
   );
 }

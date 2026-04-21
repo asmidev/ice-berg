@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from 'next/link';
 
 interface LmsTableProps {
   groups: any[];
@@ -83,9 +84,11 @@ export function LmsTable({ groups, isLoading, onEdit, onArchive, onDelete, onVie
                 <tr key={group.id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="py-4 px-6">
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-gray-900 group-hover:text-pink-600 transition-colors">
-                        {group.name}
-                      </span>
+                      <Link href={`/lms/groups/${group.id}`}>
+                        <span className="text-sm font-semibold text-gray-900 hover:text-pink-600 cursor-pointer transition-colors">
+                          {group.name}
+                        </span>
+                      </Link>
                       <span className="text-xs text-gray-400">{group.course?.name || 'Kurs yo\'q'}</span>
                     </div>
                   </td>

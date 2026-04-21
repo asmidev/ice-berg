@@ -78,8 +78,8 @@ function CashboxContent() {
   const [cashboxes, setCashboxes] = useState<any[]>([]);
 
   // Filters & Periods
-  const [startDate, setStartDate] = useState(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' });
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -102,8 +102,14 @@ function CashboxContent() {
         start.setDate(end.getDate() - 1); 
         end.setDate(end.getDate() - 1);
         break;
-      case '7d': start.setDate(end.getDate() - 7); break;
-      case '30d': start.setDate(end.getDate() - 30); break;
+      case '7d': 
+        start.setDate(end.getDate() - 3); 
+        end.setDate(end.getDate() + 3);
+        break;
+      case '30d': 
+        start.setDate(end.getDate() - 15); 
+        end.setDate(end.getDate() + 15);
+        break;
       case 'thisMonth': start.setDate(1); break;
       case 'lastMonth':
         start.setMonth(end.getMonth() - 1);
@@ -158,7 +164,18 @@ function CashboxContent() {
       )}
 
       {/* 🚀 Top Summary Cards & Global Filter Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-6 mb-8">
+         <div className="bg-white p-5 rounded-[12px] shadow-sm border border-gray-100 flex justify-between items-center group relative overflow-hidden h-[100px]">
+            <div className="absolute top-0 left-0 w-1 h-full bg-[#f59e0b]" />
+            <div>
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 opacity-70">Umumiy Balans (Kassa)</p>
+               <h2 className="text-xl font-black text-[#1E3A5F]">
+                  {((stats?.cash_total || 0) + (stats?.other_total || 0)).toLocaleString()}
+                  <span className="text-[10px] text-gray-300 font-bold ml-1">uzs</span>
+               </h2>
+            </div>
+            <div className="w-10 h-10 rounded-[8px] bg-amber-50 text-amber-500 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all"><Wallet size={20} /></div>
+         </div>
          <div className="bg-white p-5 rounded-[12px] shadow-sm border border-gray-100 flex justify-between items-center group relative overflow-hidden h-[100px]">
             <div className="absolute top-0 left-0 w-1 h-full bg-[#1E3A5F]" />
             <div>
@@ -260,8 +277,8 @@ function CashboxContent() {
                         <div className="grid grid-cols-2 gap-2">
                            <button onClick={() => setRange('today')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Bugun</button>
                            <button onClick={() => setRange('yesterday')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Kecha</button>
-                           <button onClick={() => setRange('7d')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Oxirgi 7 kun</button>
-                           <button onClick={() => setRange('30d')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Oxirgi 30 kun</button>
+                           <button onClick={() => setRange('7d')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Haftalik oqim</button>
+                           <button onClick={() => setRange('30d')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Oylik oqim</button>
                            <button onClick={() => setRange('thisMonth')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">Shu oy</button>
                            <button onClick={() => setRange('lastMonth')} className="py-2 px-3 rounded-lg bg-gray-50 hover:bg-[#1E3A5F] hover:text-white text-[11px] font-bold text-gray-500 transition-all">O'tgan oy</button>
                         </div>

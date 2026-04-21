@@ -356,6 +356,22 @@ export class FinanceService {
     });
   }
 
+  async deleteSale(tenantId: string, id: string) {
+    const sale = await this.prisma.saleTransaction.findUnique({
+      where: { id, tenant_id: tenantId },
+    });
+    
+    if (!sale) throw new Error('Sale not found');
+    
+    if (!sale.is_archived) {
+      throw new Error('Faqat arxivlangan savdolarni butunlay o\'chirish mumkin');
+    }
+
+    return this.prisma.saleTransaction.delete({
+      where: { id, tenant_id: tenantId },
+    });
+  }
+
   async getPaymentStats(tenantId: string, branchId?: string, period: string = '6_months', query?: any) {
     const where: any = { tenant_id: tenantId, is_archived: false };
     if (branchId && branchId !== 'all') {
@@ -725,6 +741,34 @@ export class FinanceService {
         chartData
       }
     };
+  }
+
+  async clearStudentDebts(tenantId: string, studentId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const invoices = await tx.invoice.findMany({
+        where: { tenant_id: tenantId, student_id: studentId, status: { in: ['UNPAID', 'PARTIAL'] } }
+      });
+
+      if (invoices.length === 0) throw new Error("Talabaning to'lanmagan qarzi mavjud emas");
+
+      const totalDebtToClear = invoices.reduce((sum, inv) => sum + (Number(inv.amount) - Number(inv.paid_amount)), 0);
+
+      // Increment student balance back (because creating invoice decremented it)
+      await tx.student.update({
+        where: { id: studentId },
+        data: { 
+          balance: { increment: totalDebtToClear },
+          course_balance: { increment: totalDebtToClear } 
+        }
+      });
+
+      // Delete the invoices completely
+      await tx.invoice.deleteMany({
+        where: { id: { in: invoices.map(i => i.id) } }
+      });
+
+      return { success: true, clearedAmount: totalDebtToClear };
+    });
   }
 
   async recordExpense(tenantId: string, data: any) {
@@ -1542,51 +1586,26 @@ export class FinanceService {
     if (branchId && branchId !== 'all') adjustmentWhere.branch_id = branchId;
     
 
-    // --- 1. Fetch Revenue Segments (Course Incomes) ---
-    const revenueSegments = await this.prisma.revenueSegment.findMany({
-      where: {
-        tenant_id: tenantId,
-        branch_id: branchId && branchId !== 'all' ? branchId : undefined,
-        date: { gte: start, lte: end }
-      },
-      include: { group: { include: { course: true } }, payment: true }
-    });
-
-    // --- 2. Fetch Direct Payments (Mock Exams, Books, Other Incomes without segments) ---
-    const directPayments = await this.prisma.payment.findMany({
+    // --- 1. Fetch Payments (Course Incomes, Books, Exams, etc) ---
+    const payments = await this.prisma.payment.findMany({
       where: {
         tenant_id: tenantId,
         branch_id: branchId && branchId !== 'all' ? branchId : undefined,
         created_at: { gte: start, lte: end },
         status: 'SUCCESS',
-        is_archived: false,
-        revenueSegments: { none: {} } // Crucial: avoid double counting with segments
+        is_archived: false
       },
-      include: { category: true }
+      include: { category: true, group: { include: { course: true } } }
     });
 
-    // Process Segments
-    revenueSegments.forEach(rs => {
-      const amt = Number(rs.amount || 0);
-      stats.period_incomes += amt;
-      const type = (rs.payment?.type || 'CASH') as keyof typeof stats.incomes;
-      if (stats.incomes[type] !== undefined) stats.incomes[type] += amt;
-
-      let dName = 'Kurs to\'lovlari';
-      if (rs.group?.course?.name) {
-        dName = rs.group.course.name;
-      }
-      directionMap[dName] = (directionMap[dName] || 0) + amt;
-    });
-
-    // Process Direct Payments
-    directPayments.forEach(p => {
+    // Process Payments
+    payments.forEach(p => {
       const amt = Number(p.amount || 0);
       stats.period_incomes += amt;
       const type = (p.type || 'CASH') as keyof typeof stats.incomes;
       if (stats.incomes[type] !== undefined) stats.incomes[type] += amt;
 
-      const dName = p.category?.name || p.description || 'Boshqa kirimlar';
+      const dName = p.group?.course?.name ? p.group.course.name : (p.category?.name || p.description || 'Kurs to\'lovlari');
       directionMap[dName] = (directionMap[dName] || 0) + amt;
     });
 
@@ -1632,14 +1651,15 @@ export class FinanceService {
       include: { categoryRel: true }
     });
 
-    // --- 5. Fetch Payroll Segments ---
-    const payrollSegments = await this.prisma.payrollSegment.findMany({
+    // --- 5. Fetch Payrolls ---
+    const payrolls = await this.prisma.payroll.findMany({
       where: {
         tenant_id: tenantId,
         branch_id: branchId && branchId !== 'all' ? branchId : undefined,
-        date: { gte: start, lte: end }
-      },
-      include: { payroll: true }
+        paid_at: { gte: start, lte: end },
+        status: 'PAID',
+        is_archived: false
+      }
     });
 
     const expMap: Record<string, number> = {};
@@ -1655,10 +1675,10 @@ export class FinanceService {
       expMap[catName] = (expMap[catName] || 0) + amt;
     });
 
-    payrollSegments.forEach(ps => {
-      const amt = Number(ps.amount || 0);
+    payrolls.forEach(ps => {
+      const amt = Number(ps.amount || 0) + Number(ps.bonus || 0) - Number(ps.deduction || 0);
       stats.period_expenses += amt;
-      const pm = (ps.payroll?.payment_method || 'CASH') as keyof typeof stats.expenses;
+      const pm = (ps.payment_method || 'CASH') as keyof typeof stats.expenses;
       if (stats.expenses[pm] !== undefined) stats.expenses[pm] += amt;
       expMap['Ish haqi'] = (expMap['Ish haqi'] || 0) + amt;
     });
@@ -1820,10 +1840,10 @@ export class FinanceService {
     };
 
     // 1. Fetch ALL data in parallel for performance
-    const [revenueSegments, sales, expenses, payrollSegments, bonuses, adjustments] = await Promise.all([
-      this.prisma.revenueSegment.findMany({
-        where: { ...baseWhere, date: { gte: start, lte: end } },
-        select: { amount: true, date: true }
+    const [payments, sales, expenses, payrolls, bonuses, adjustments] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { ...baseWhere, created_at: { gte: start, lte: end }, status: 'SUCCESS', is_archived: false },
+        select: { amount: true, created_at: true }
       }),
       this.prisma.saleTransaction.findMany({
         where: { ...baseWhere, is_archived: false, created_at: { gte: start, lte: end }, status: 'SUCCESS' },
@@ -1833,9 +1853,9 @@ export class FinanceService {
         where: { ...baseWhere, is_archived: false, date: { gte: start, lte: end } },
         select: { amount: true, date: true }
       }),
-      this.prisma.payrollSegment.findMany({
-        where: { ...baseWhere, date: { gte: start, lte: end } },
-        select: { amount: true, date: true }
+      this.prisma.payroll.findMany({
+        where: { ...baseWhere, paid_at: { gte: start, lte: end }, status: 'PAID', is_archived: false },
+        select: { amount: true, bonus: true, deduction: true, paid_at: true }
       }),
       this.prisma.bonus.findMany({
         where: { ...baseWhere, is_archived: false, date: { gte: start, lte: end } },
@@ -1856,8 +1876,8 @@ export class FinanceService {
     const dateMap: Record<string, { kirim: number, chiqim: number }> = {};
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-    revenueSegments.forEach(p => {
-      const key = formatDate(p.date);
+    payments.forEach(p => {
+      const key = formatDate(p.created_at);
       if (!dateMap[key]) dateMap[key] = { kirim: 0, chiqim: 0 };
       dateMap[key].kirim += Number(p.amount || 0);
     });
@@ -1871,10 +1891,11 @@ export class FinanceService {
       if (!dateMap[key]) dateMap[key] = { kirim: 0, chiqim: 0 };
       dateMap[key].chiqim += Number(e.amount || 0);
     });
-    payrollSegments.forEach(p => {
-      const key = formatDate(p.date);
+    payrolls.forEach(p => {
+      if (!p.paid_at) return;
+      const key = formatDate(p.paid_at);
       if (!dateMap[key]) dateMap[key] = { kirim: 0, chiqim: 0 };
-      dateMap[key].chiqim += Number(p.amount || 0);
+      dateMap[key].chiqim += Number(p.amount || 0) + Number(p.bonus || 0) - Number(p.deduction || 0);
     });
     bonuses.forEach(b => {
       const key = formatDate(b.date);

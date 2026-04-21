@@ -31,6 +31,8 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { DiscountsModule } from './modules/discounts/discounts.module';
 import { PenaltyModule } from './modules/penalty/penalty.module';
 import { CallCenterModule } from './modules/call-center/call-center.module';
+import { TenantModule } from './modules/tenant/tenant.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -65,6 +67,8 @@ import { CallCenterModule } from './modules/call-center/call-center.module';
     DiscountsModule,
     PenaltyModule,
     CallCenterModule,
+    TenantModule,
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 100,

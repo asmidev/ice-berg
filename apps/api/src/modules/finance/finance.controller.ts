@@ -63,6 +63,11 @@ export class FinanceController {
     return this.financeService.getDebtors(req.user.tenantId, query.branch_id, query);
   }
 
+  @Delete('debtors/:studentId/debts')
+  clearStudentDebts(@Req() req: any, @Param('studentId') studentId: string) {
+    return this.financeService.clearStudentDebts(req.user.tenantId, studentId);
+  }
+
   @Post('expenses')
   recordExpense(@Req() req: any, @Body() data: any) {
     return this.financeService.recordExpense(req.user.tenantId, { ...data, userId: req.user.userId });
@@ -141,6 +146,11 @@ export class FinanceController {
   @Post('sales/:id/restore')
   restoreSale(@Req() req: any, @Param('id') id: string) {
     return this.financeService.restoreSale(req.user.tenantId, id);
+  }
+
+  @Delete('sales/:id')
+  deleteSale(@Req() req: any, @Param('id') id: string) {
+    return this.financeService.deleteSale(req.user.tenantId, id);
   }
 
   // Payments Archive Endpoints
