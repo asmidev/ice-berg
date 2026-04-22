@@ -69,7 +69,7 @@ export function AttendanceMarkingModal({
 	const [students, setStudents] = useState<any[]>([])
 	const [gradingSystem, setGradingSystem] = useState<any>(null)
 
-	const lessonDays = useMemo(() => {
+	const lessonDays = useMemo((): string[] => {
 		if (!group?.start_date || !group?.schedules) return []
 		const days: string[] = []
 		const start = new Date(group.start_date)
@@ -95,7 +95,7 @@ export function AttendanceMarkingModal({
 				setDate(today)
 			} else {
 				// Eng yaqin o'tgan dars kunini topish
-				const pastDays = lessonDays.filter(d => d <= today)
+				const pastDays = lessonDays.filter((d: string) => d <= today)
 				if (pastDays.length > 0) {
 					setDate(pastDays[pastDays.length - 1])
 				} else {
@@ -149,19 +149,19 @@ export function AttendanceMarkingModal({
 	}
 
 	const handleStatusChange = (enrollmentId: string, status: string) => {
-		setStudents(prev =>
-			prev.map(s => (s.enrollmentId === enrollmentId ? { ...s, status } : s)),
+		setStudents((prev: any[]) =>
+			prev.map((s: any) => (s.enrollmentId === enrollmentId ? { ...s, status } : s)),
 		)
 	}
 
 	const handleScoreChange = (enrollmentId: string, score: number) => {
-		setStudents(prev =>
-			prev.map(s => (s.enrollmentId === enrollmentId ? { ...s, score } : s)),
+		setStudents((prev: any[]) =>
+			prev.map((s: any) => (s.enrollmentId === enrollmentId ? { ...s, score } : s)),
 		)
 	}
 
 	const handleMarkAll = (status: string) => {
-		setStudents(prev => prev.map(s => ({ ...s, status })))
+		setStudents((prev: any[]) => prev.map((s: any) => ({ ...s, status })))
 	}
 
 	const handleSave = async () => {
@@ -177,7 +177,7 @@ export function AttendanceMarkingModal({
 
 		// Hammani baholanganini tekshirish
 		const unrated = students.filter(
-			s => s.status !== 'ABSENT' && s.score === null,
+			(s: any) => s.status !== 'ABSENT' && s.score === null,
 		)
 		if (unrated.length > 0) {
 			toast.error(
@@ -188,7 +188,7 @@ export function AttendanceMarkingModal({
 
 		setSubmitting(true)
 		try {
-			const records = students.map(s => ({
+			const records = students.map((s: any) => ({
 				enrollmentId: s.enrollmentId,
 				status: s.status === 'NOT_MARKED' ? 'PRESENT' : s.status, // Agar belgilanmagan bo'lsa ham keldi deb hisoblanadi (bahosi borligi uchun)
 				score: s.score ? parseInt(s.score.toString()) : null,
@@ -208,11 +208,11 @@ export function AttendanceMarkingModal({
 		}
 	}
 
-	const getScoreRange = () => {
+	const getScoreRange = (): number[] => {
 		if (gradingSystem?.method === '5-ball') return [2, 3, 4, 5]
 		if (gradingSystem?.method === '10-ball')
 			return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-		return Array.from({ length: 20 }, (_, i) => (i + 1) * 5) // 100-ballik uchun 5 lik qadam bilan 20 ta
+		return Array.from({ length: 20 }, (_, i: number) => (i + 1) * 5) // 100-ballik uchun 5 lik qadam bilan 20 ta
 	}
 
 	return (
@@ -273,7 +273,7 @@ export function AttendanceMarkingModal({
 						</div>
 					) : (
 						<div className='grid grid-cols-1 lg:grid-cols-2 gap-6 pb-4'>
-							{students.map(student => (
+							{students.map((student: any) => (
 								<div
 									key={student.enrollmentId}
 									className='flex flex-col p-6 rounded-3xl border border-zinc-100 hover:border-emerald-100 hover:bg-emerald-50/10 transition-all group gap-5'
@@ -322,7 +322,7 @@ export function AttendanceMarkingModal({
 											<Label className='text-[10px] font-black uppercase text-zinc-400 tracking-widest flex items-center gap-2'>
 												Darsdagi Faollik Bahosi
 												{student.score && (
-													<Badge className='bg-emerald-500 text-white border-0 text-[9px] font-black px-1.5 h-4 ml-1'>
+													<Badge className='bg-emerald-500 text-white border-0 text-[9px] font-black px-1.5 h-4 ml-1 hover:bg-emerald-600'>
 														BELGILANDI
 													</Badge>
 												)}

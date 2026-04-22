@@ -55,6 +55,7 @@ model Tenant {
   users                  User[]
   penalties              Penalty[]
   staffAttendances       StaffAttendance[]
+  promotions             Promotion[]
 }
 
 model ReceiptTemplate {
@@ -103,6 +104,7 @@ model Branch {
   paymentCategories PaymentCategory[]
   penalties         Penalty[]
   staffAttendances  StaffAttendance[]
+  promotions        Promotion[]
 }
 
 model Role {
@@ -141,6 +143,7 @@ model User {
   role                Role               @relation(fields: [role_id], references: [id])
   tenant              Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   branches            Branch[]           @relation("BranchToUser")
+  promotions          Promotion[]
 }
 
 model Teacher {
@@ -343,9 +346,14 @@ model Lead {
   branch_id      String?
   source_id      String?
   stage_id       String?
+  course_id      String?
   archive_reason String?
   status         String      @default("ACTIVE")
   converted_at   DateTime?
+  trial_date     DateTime?
+  trial_status   String?     // 'PENDING', 'ATTENDED', 'NO_SHOW'
+  promotion_id   String?
+  
   crmTasks       CrmTask[]
   branch         Branch?     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   manager        User?       @relation(fields: [manager_id], references: [id])
@@ -353,9 +361,35 @@ model Lead {
   stage          LeadStage?  @relation(fields: [stage_id], references: [id])
   tenant         Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   student        Student?    @relation("LeadToStudent")
-  course_id      String?
   course         Course?     @relation(fields: [course_id], references: [id])
+  promotion      Promotion?  @relation(fields: [promotion_id], references: [id])
   callCenterTasks CallCenterTask[]
+}
+
+model Promotion {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  branch_id   String?
+  name        String   // Maktab yoki tadbir nomi
+  date        DateTime
+  manager_id  String?
+  created_at  DateTime @default(now())
+  
+  classes     PromotionClass[]
+  leads       Lead[]
+  manager     User?    @relation(fields: [manager_id], references: [id])
+  branch      Branch?  @relation(fields: [branch_id], references: [id])
+  tenant      Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model PromotionClass {
+  id           String   @id @default(uuid())
+  promotion_id String
+  name         String   // Sinf nomi (10-A)
+  notes        String?  // Izoh
+  count        Int?     // O'quvchilar soni
+  
+  promotion    Promotion @relation(fields: [promotion_id], references: [id], onDelete: Cascade)
 }
 
 model CrmTask {
@@ -450,6 +484,8 @@ model Enrollment {
   student_id  String
   group_id    String
   enrolled_at DateTime     @default(now())
+  joined_at   DateTime?    // Haqiqiy dars boshlagan sanasi
+  left_at     DateTime?    // Guruhdan chiqqan sanasi
   status      String       @default("ACTIVE")
   attendances Attendance[]
   group       Group        @relation(fields: [group_id], references: [id], onDelete: Cascade)

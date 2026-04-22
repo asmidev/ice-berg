@@ -59,8 +59,28 @@ export class CallCenterController {
     }
   }
 
+  @Post('leads/:id/trial')
+  @SetPermissions('callcenter.leads')
+  async updateLeadTrial(@Req() req: any, @Param('id') id: string, @Body() data: any) {
+    try {
+      return await this.callCenterService.updateLeadTrial(req.user.tenantId, id, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get('export')
+  @SetPermissions('callcenter.leads')
+  async exportLeads(@Req() req: any, @Query('branch_id') branchId: string, @Query() query: any) {
+    try {
+      return await this.callCenterService.exportLeadsToExcel(req.user.tenantId, branchId, query);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Put('tasks/:id/resolve')
-  @SetPermissions('callcenter.interaction')
+  @SetPermissions('callcenter.resolve')
   async resolveTask(@Param('id') id: string) {
     try {
       return await this.callCenterService.resolveTask(id);

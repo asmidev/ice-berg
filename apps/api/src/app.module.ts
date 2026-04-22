@@ -33,6 +33,7 @@ import { PenaltyModule } from './modules/penalty/penalty.module';
 import { CallCenterModule } from './modules/call-center/call-center.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PromotionModule } from './modules/promotion/promotion.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     PenaltyModule,
     CallCenterModule,
     TenantModule,
+    PromotionModule,
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{
       ttl: 60000,

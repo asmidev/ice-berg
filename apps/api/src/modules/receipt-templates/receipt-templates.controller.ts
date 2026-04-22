@@ -7,7 +7,7 @@ export class ReceiptTemplatesController {
   constructor(private readonly service: ReceiptTemplatesService) {}
 
   @Post()
-  @SetPermissions('settings.office')
+  @SetPermissions('receipts.create')
   async create(@Req() req: any, @Body() body: { branch_id: string, name: string, settings: any }) {
     try {
       return await this.service.create(req.user.tenantId, body.branch_id, body.name, body.settings);
@@ -17,7 +17,7 @@ export class ReceiptTemplatesController {
   }
 
   @Get()
-  @SetPermissions('settings.office', 'payments.view')
+  @SetPermissions('receipts.view')
   async findAll(@Req() req: any, @Query('branch_id') branchId: string) {
     try {
       return await this.service.findAll(req.user.tenantId, branchId);
@@ -27,7 +27,7 @@ export class ReceiptTemplatesController {
   }
 
   @Delete(':id')
-  @SetPermissions('settings.office')
+  @SetPermissions('receipts.delete')
   async remove(@Req() req: any, @Param('id') id: string) {
     try {
       return await this.service.remove(req.user.tenantId, id);

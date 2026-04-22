@@ -24,6 +24,7 @@ export default function CallCenterPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
+  const [leadSubType, setLeadSubType] = useState<'ALL' | 'TRIAL_NO_SHOW' | 'TRIAL_NO_ENROLL'>('ALL');
   
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,7 +40,8 @@ export default function CallCenterPage() {
         'LEAD': '/call-center/leads'
       };
       
-      const res = await api.get(`${endpointMap[activeTab]}?branch_id=${branchId}&search=${search}&page=${page}&limit=20`);
+      const subTypeQuery = activeTab === 'LEAD' ? `&type=${leadSubType}` : '';
+      const res = await api.get(`${endpointMap[activeTab]}?branch_id=${branchId}&search=${search}&page=${page}&limit=20${subTypeQuery}`);
       setData(res.data?.data || []);
       setMeta(res.data?.meta || { total: 0, totalPages: 1 });
     } catch (err) {
@@ -167,6 +169,31 @@ export default function CallCenterPage() {
             </Button>
           </div>
         </div>
+
+        {/* 📑 Lead Sub-tabs (Only when LEAD tab is active) */}
+        {activeTab === 'LEAD' && (
+          <div className="mt-4 pt-4 border-t border-gray-50 flex items-center gap-3">
+             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">Filter:</span>
+             <button 
+               onClick={() => setLeadSubType('ALL')}
+               className={cn("px-4 py-1.5 rounded-full text-[11px] font-bold transition-all", leadSubType === 'ALL' ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100")}
+             >
+               Barcha Lidlar
+             </button>
+             <button 
+               onClick={() => setLeadSubType('TRIAL_NO_SHOW')}
+               className={cn("px-4 py-1.5 rounded-full text-[11px] font-bold transition-all", leadSubType === 'TRIAL_NO_SHOW' ? "bg-red-500 text-white" : "text-gray-500 hover:bg-gray-100")}
+             >
+               Sinovga kelmaganlar
+             </button>
+             <button 
+               onClick={() => setLeadSubType('TRIAL_NO_ENROLL')}
+               className={cn("px-4 py-1.5 rounded-full text-[11px] font-bold transition-all", leadSubType === 'TRIAL_NO_ENROLL' ? "bg-indigo-500 text-white" : "text-gray-500 hover:bg-gray-100")}
+             >
+               Guruhga yozilmaganlar
+             </button>
+          </div>
+        )}
       </div>
 
       {/* 🚀 Main Data Table (Universal Standart - ui_rules.md 3.2) */}

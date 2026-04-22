@@ -33,7 +33,23 @@ export class FinanceService {
         status: { in: ['UNPAID', 'PARTIAL'] } 
       },
       orderBy: { created_at: 'asc' },
-      include: { group: { select: { name: true, price: true, start_date: true, end_date: true } } }
+      include: { 
+        group: { 
+          select: { 
+            name: true, 
+            price: true, 
+            start_date: true, 
+            end_date: true,
+            teacher: {
+               include: {
+                  user: {
+                     select: { first_name: true, last_name: true }
+                  }
+               }
+            }
+          } 
+        } 
+      }
     });
 
     for (const inv of invoices) {
@@ -2257,11 +2273,38 @@ export class FinanceService {
       where: { group_id: group.id, type: 'COURSE' }
     });
     
-    const invoicedRevenue = invoices.reduce((acc, inv) => acc + Number(inv.amount), 0);
+    let invoicedRevenue = 0;
+    for (const inv of invoices) {
+      // O'quvchining ushbu guruhdagi enrollmetini tekshiramiz
+      const enrollment = await this.prisma.enrollment.findFirst({
+        where: { 
+          student_id: inv.student_id, 
+          group_id: group.id 
+        },
+        orderBy: { enrolled_at: 'desc' }
+      });
+
+      if (enrollment) {
+        const joinedAt = enrollment.joined_at || enrollment.enrolled_at;
+        const leftAt = enrollment.left_at || new Date();
+        const durationDays = (leftAt.getTime() - joinedAt.getTime()) / (1000 * 60 * 60 * 24);
+
+        // Agar o'quvchi 7 kundan kam bo'lgan bo'lsa, o'qituvchi ulushiga qo'shmaymiz
+        if (durationDays < 7) {
+          continue;
+        }
+      }
+      invoicedRevenue += Number(inv.amount);
+    }
     
     // Virtual sum for VIP
     const basePrice = Number(group.price) || 0;
-    const activeEnrollments = group.enrollments.filter((e: any) => e.status === 'ACTIVE');
+    const activeEnrollments = group.enrollments.filter((e: any) => {
+      const joinedAt = e.joined_at || e.enrolled_at;
+      const leftAt = e.left_at || new Date();
+      const durationDays = (leftAt.getTime() - joinedAt.getTime()) / (1000 * 60 * 60 * 24);
+      return e.status === 'ACTIVE' && durationDays >= 7;
+    });
     const vipStudents = activeEnrollments.filter((e: any) => e.student?.is_vip);
     const vipShadowRevenue = vipStudents.length * basePrice;
 

@@ -33,6 +33,7 @@ const MENU_ITEMS = [
 	{ name: 'LMS (Guruhlar)', path: '/lms', icon: BookOpen },
 	{ name: 'Ustozlar', path: '/teachers', icon: Users },
 	{ name: 'Call Center', path: '/call-center', icon: PhoneCall },
+	{ name: 'Targ\'ibot', path: '/crm/promotions', icon: BarChart2 },
 	{
 		name: 'Moliya',
 		icon: CreditCard,

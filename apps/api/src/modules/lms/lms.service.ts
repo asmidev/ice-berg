@@ -667,92 +667,104 @@ export class LmsService {
     });
   }
 
-  async enrollStudents(tenantId: string, groupId: string, studentIds: string[]) {
-    const group = await this.prisma.group.findUnique({
-      where: { id: groupId },
-      include: { schedules: true }
-    });
-    if (!group) throw new HttpException('Guruh topilmadi', 404);
+  async enrollStudents(tenantId: string, groupId: string, studentIds: string[], activationDate?: string) {
+    try {
+      const group = await this.prisma.group.findUnique({
+        where: { id: groupId },
+        include: { schedules: true }
+      });
+      if (!group) throw new HttpException('Guruh topilmadi', 404);
 
-    const monthStr = new Date().toLocaleString('uz-UZ', { month: 'long', year: 'numeric' });
-    const formattedMonth = monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
+      const monthStr = new Date().toLocaleString('uz-UZ', { month: 'long', year: 'numeric' });
+      const formattedMonth = monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
 
-    return this.prisma.$transaction(async (tx) => {
-      for (const studentId of studentIds) {
-        const student = await tx.student.findUnique({
-          where: { id: studentId },
-          include: { user: true }
-        });
+      return await this.prisma.$transaction(async (tx) => {
+        for (const studentId of studentIds) {
+          const student = await tx.student.findUnique({
+            where: { id: studentId },
+            include: { user: true }
+          });
 
-        if (!student) continue;
+          if (!student) continue;
 
-        // 1. Enrollment
-        await tx.enrollment.create({
-          data: { group_id: groupId, student_id: studentId, status: 'ACTIVE' }
-        });
+          const joinDate = activationDate ? new Date(activationDate) : new Date();
+          
+          // 1. Enrollment
+          await tx.enrollment.create({
+            data: { 
+              group_id: groupId, 
+              student_id: studentId, 
+              status: 'ACTIVE',
+              joined_at: joinDate
+            }
+          });
 
-        // Skip Invoice if VIP
-        if (student.is_vip || group.is_vip) {
-          continue;
-        }
-
-        // --- Pro-rata Tuition Logic ---
-        const startDate = group.last_stage_at || group.start_date;
-        const durationMonths = group.stage_duration_months || 1;
-        const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + durationMonths);
-        
-        const scheduleDays = group.schedules.map(s => s.day_of_week);
-        const joinDate = new Date(); // Hozirgi vaqtda qo'shildi deb hisoblaymiz
-        
-        // Jami darslar va qolgan darslar
-        const totalPlanned = this.countSessions(startDate, endDate, scheduleDays);
-        const remainingLessons = this.countSessions(joinDate > startDate ? joinDate : startDate, endDate, scheduleDays);
-
-        const basePrice = Number(group.price) || 0;
-        let proRatedPrice = basePrice;
-        
-        if (totalPlanned > 0 && remainingLessons < totalPlanned && joinDate > startDate) {
-           proRatedPrice = (basePrice / totalPlanned) * remainingLessons;
-        }
-
-        const discountedAmount = await this.discountsService.applyDiscounts(tenantId, studentId, Math.round(proRatedPrice));
-
-        // 2. Invoice
-        await tx.invoice.create({
-          data: {
-            tenant_id: tenantId,
-            branch_id: group.branch_id,
-            student_id: studentId,
-            group_id: groupId,
-            amount: discountedAmount,
-            status: 'UNPAID',
-            type: 'COURSE',
-            month: formattedMonth,
-            start_date: startDate,
-            end_date: endDate
+          // Skip Invoice if VIP
+          if (student.is_vip || group.is_vip) {
+            continue;
           }
-        });
 
-        // 3. Balance deduction
-        await tx.student.update({
-          where: { id: studentId },
-          data: { course_balance: { decrement: discountedAmount } }
-        });
+          // --- Pro-rata Tuition Logic ---
+          const startDate = group.last_stage_at || group.start_date;
+          const durationMonths = group.stage_duration_months || 1;
+          const endDate = new Date(startDate);
+          endDate.setMonth(endDate.getMonth() + durationMonths);
+          
+          const scheduleDays = group.schedules.map(s => s.day_of_week);
+          const joinDateObj = activationDate ? new Date(activationDate) : new Date();
+          
+          // Jami darslar va qolgan darslar
+          const totalPlanned = this.countSessions(startDate, endDate, scheduleDays);
+          const remainingLessons = this.countSessions(joinDateObj > startDate ? joinDateObj : startDate, endDate, scheduleDays);
 
-        // --- SMS Trigger ---
-        if (student?.user?.phone) {
-           this.smsService.handleTrigger(tenantId, group.branch_id, 'ENROLLMENT', {
-             studentName: `${student.user.first_name} ${student.user.last_name}`,
-             groupName: group.name,
-             courseName: group.name,
-             price: discountedAmount,
-             date: new Date().toLocaleDateString()
-           }, student.user.phone);
+          const basePrice = Number(group.price) || 0;
+          let proRatedPrice = basePrice;
+          
+          if (totalPlanned > 0 && remainingLessons < totalPlanned && joinDateObj > startDate) {
+             proRatedPrice = (basePrice / totalPlanned) * remainingLessons;
+          }
+
+          const discountedAmount = await this.discountsService.applyDiscounts(tenantId, studentId, Math.round(proRatedPrice));
+
+          // 2. Invoice
+          await tx.invoice.create({
+            data: {
+              tenant_id: tenantId,
+              branch_id: group.branch_id,
+              student_id: studentId,
+              group_id: groupId,
+              amount: discountedAmount,
+              status: 'UNPAID',
+              type: 'COURSE',
+              month: formattedMonth,
+              start_date: startDate,
+              end_date: endDate
+            }
+          });
+
+          // 3. Balance deduction
+          await tx.student.update({
+            where: { id: studentId },
+            data: { course_balance: { decrement: discountedAmount } }
+          });
+
+          // --- SMS Trigger ---
+          if (student?.user?.phone) {
+             this.smsService.handleTrigger(tenantId, group.branch_id, 'ENROLLMENT', {
+               studentName: `${student.user.first_name} ${student.user.last_name}`,
+               groupName: group.name,
+               courseName: group.name,
+               price: discountedAmount,
+               date: new Date().toLocaleDateString()
+             }, student.user.phone);
+          }
         }
-      }
-      return { success: true };
-    }, { timeout: 300000 });
+        return { success: true };
+      }, { timeout: 300000 });
+    } catch (e: any) {
+      console.error("ENROLL STUDENTS ERROR", e);
+      throw e;
+    }
   }
 
   private countSessions(startDate: Date, endDate: Date, scheduleDays: number[]): number {
@@ -803,131 +815,192 @@ export class LmsService {
     );
   }
 
-  async calculateUnenrollmentAmount(tenantId: string, enrollmentId: string) {
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { id: enrollmentId },
-      include: { 
-        group: { include: { schedules: true } },
-        student: { include: { user: true } }
-      }
-    });
+  async calculateUnenrollmentAmount(tenantId: string, enrollmentId: string, leavingDate?: string) {
+    try {
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id: enrollmentId },
+        include: { 
+          group: { include: { schedules: true } },
+          student: { include: { user: true } }
+        }
+      });
 
-    if (!enrollment || enrollment.group.tenant_id !== tenantId) {
-       throw new HttpException('Ro\'yxatdan o\'tish ma\'lumoti topilmadi', 404);
+      if (!enrollment || enrollment.group.tenant_id !== tenantId) {
+         throw new HttpException('Ro\'yxatdan o\'tish ma\'lumoti topilmadi', 404);
+      }
+
+      const group = enrollment.group;
+      const startDate = group.last_stage_at || group.start_date;
+      const durationMonths = group.stage_duration_months || 1;
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + durationMonths);
+
+      let totalPlanned = 0;
+      const scheduleDays = group.schedules.map(s => s.day_of_week);
+      
+      if (scheduleDays.length > 0) {
+        let current = new Date(startDate);
+        while (current < endDate) {
+          if (scheduleDays.includes(current.getDay())) totalPlanned++;
+          current.setDate(current.getDate() + 1);
+        }
+      }
+      if (totalPlanned === 0) totalPlanned = 24; 
+
+      const lDate = leavingDate ? new Date(leavingDate) : new Date();
+      
+      const attendedLessonsCount = await this.prisma.attendance.count({
+        where: {
+          enrollment_id: enrollmentId,
+          date: { gte: startDate, lte: lDate },
+          status: { in: ['PRESENT', 'LATE'] }
+        }
+      });
+
+      // Faqat belgilangan sanagacha bo'lgan darslar soni (kelgan-kelmaganidan qat'iy nazar)
+      const activePeriodLessons = this.countSessions(enrollment.joined_at || startDate, lDate > endDate ? endDate : lDate, scheduleDays);
+      
+      const price = Number(group.price) || 0;
+      // O'quvchi guruhda bo'lgan vaqti uchun haqiqiy qarz (darslar soniga ko'ra)
+      const amountToPay = totalPlanned > 0 ? (price / totalPlanned) * activePeriodLessons : 0;
+
+      return {
+        studentName: `${enrollment.student.user.first_name} ${enrollment.student.user.last_name}`,
+        groupName: group.name,
+        groupPrice: price,
+        totalPlanned,
+        activeLessons: activePeriodLessons,
+        attendedLessons: attendedLessonsCount,
+        amountToPay: Math.round(amountToPay)
+      };
+    } catch (e: any) {
+      console.error("CALC UNENROLL AMOUNT ERROR", e);
+      throw e;
     }
-
-    const group = enrollment.group;
-    const startDate = group.last_stage_at || group.start_date;
-    const durationMonths = group.stage_duration_months || 1;
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + durationMonths);
-
-    let totalPlanned = 0;
-    const scheduleDays = group.schedules.map(s => s.day_of_week);
-    
-    if (scheduleDays.length > 0) {
-      let current = new Date(startDate);
-      while (current < endDate) {
-        if (scheduleDays.includes(current.getDay())) totalPlanned++;
-        current.setDate(current.getDate() + 1);
-      }
-    }
-    if (totalPlanned === 0) totalPlanned = 24; 
-
-    const markedLessonsCount = await this.prisma.attendance.count({
-      where: {
-        enrollment_id: enrollmentId,
-        date: { gte: startDate, lt: endDate }
-      }
-    });
-
-    const price = Number(group.price) || 0;
-    const amountToPay = totalPlanned > 0 ? (price / totalPlanned) * markedLessonsCount : 0;
-
-    return {
-      studentName: `${enrollment.student.user.first_name} ${enrollment.student.user.last_name}`,
-      groupName: group.name,
-      groupPrice: price,
-      totalPlanned,
-      markedLessons: markedLessonsCount,
-      amountToPay: Math.round(amountToPay)
-    };
   }
 
-  async unenrollStudent(tenantId: string, enrollmentId: string) {
-    const calc = await this.calculateUnenrollmentAmount(tenantId, enrollmentId);
-    const enrollment = await this.prisma.enrollment.findUnique({
-      where: { id: enrollmentId },
-      select: { student_id: true, group_id: true, group: { select: { branch_id: true } } }
-    });
-    if (!enrollment) throw new HttpException('Ro\'yxat topilmadi', 404);
+  async unenrollStudent(tenantId: string, enrollmentId: string, leavingDate?: string) {
+    try {
+      const calc = await this.calculateUnenrollmentAmount(tenantId, enrollmentId, leavingDate);
+      const enrollment = await this.prisma.enrollment.findUnique({
+        where: { id: enrollmentId },
+        select: { student_id: true, group_id: true, group: { select: { branch_id: true } } }
+      });
+      if (!enrollment) throw new HttpException('Ro\'yxat topilmadi', 404);
 
-    return this.prisma.$transaction(async (prisma) => {
-      await prisma.enrollment.update({ where: { id: enrollmentId }, data: { status: 'REMOVED' } });
-      if (calc.amountToPay > 0) {
-        const payment = await prisma.payment.create({
-          data: {
-            tenant_id: tenantId,
+      const lDate = leavingDate ? new Date(leavingDate) : new Date();
+
+      return await this.prisma.$transaction(async (prisma) => {
+        await prisma.enrollment.update({ 
+          where: { id: enrollmentId }, 
+          data: { 
+            status: 'REMOVED',
+            left_at: lDate
+          } 
+        });
+        
+        // Invoice ni yangilash yoki yangi to'lov yaratish
+        const group = await prisma.enrollment.findUnique({ where: { id: enrollmentId } }).group();
+        const startDate = group?.last_stage_at || group?.start_date || new Date();
+        
+        const currentInvoice = await prisma.invoice.findFirst({
+          where: {
             student_id: enrollment.student_id,
-            branch_id: enrollment.group.branch_id,
-            amount: calc.amountToPay,
-            type: 'CASH',
-            created_at: new Date()
+            group_id: enrollment.group_id,
+            type: 'COURSE',
+            created_at: { gte: startDate }
           }
         });
-        await prisma.transaction.create({
-          data: { payment_id: payment.id, amount: calc.amountToPay, balance_before: 0, balance_after: calc.amountToPay }
-        });
-      }
-      return { success: true, amount: calc.amountToPay };
-    });
+
+        if (currentInvoice) {
+           const diff = Number(currentInvoice.amount) - calc.amountToPay;
+           await prisma.invoice.update({
+             where: { id: currentInvoice.id },
+             data: { amount: calc.amountToPay }
+           });
+           // Student balansini qaytaramiz (chunki invoice yaratilganda balans ayrilgan edi)
+           await prisma.student.update({
+             where: { id: enrollment.student_id },
+             data: { 
+               course_balance: { increment: diff },
+               balance: { increment: diff }
+             }
+           });
+        }
+
+        if (calc.amountToPay > 0 && !currentInvoice) {
+          const payment = await prisma.payment.create({
+            data: {
+              tenant_id: tenantId,
+              student_id: enrollment.student_id,
+              branch_id: enrollment.group.branch_id,
+              amount: calc.amountToPay,
+              type: 'CASH',
+              created_at: new Date()
+            }
+          });
+          await prisma.transaction.create({
+            data: { payment_id: payment.id, amount: calc.amountToPay, balance_before: 0, balance_after: calc.amountToPay }
+          });
+        }
+        return { success: true, amount: calc.amountToPay };
+      });
+    } catch (e: any) {
+      console.error("UNENROLL STUDENT ERROR", e);
+      throw e;
+    }
   }
 
   async getGradingSettings(tenantId: string, branchId: string) {
-    if (branchId === 'all') throw new HttpException('Filialni tanlang', 400);
+    try {
+      if (branchId === 'all') throw new HttpException('Filialni tanlang', 400);
 
-    const branch = await this.prisma.branch.findFirst({
-      where: { id: branchId, tenant_id: tenantId },
-      select: { settings: true }
-    });
+      const branch = await this.prisma.branch.findFirst({
+        where: { id: branchId, tenant_id: tenantId },
+        select: { settings: true }
+      });
 
-    if (!branch) throw new HttpException('Filial topilmadi', 404);
+      if (!branch) throw new HttpException('Filial topilmadi', 404);
 
-    // FETCH REAL STATS
-    const [totalExams, grades] = await Promise.all([
-      this.prisma.exam.count({
-        where: { group: { branch_id: branchId, tenant_id: tenantId } }
-      }),
-      this.prisma.grade.findMany({
-        where: { exam: { group: { branch_id: branchId, tenant_id: tenantId } } },
-        select: { score: true, exam: { select: { max_score: true } } }
-      })
-    ]);
+      // FETCH REAL STATS
+      const [totalExams, grades] = await Promise.all([
+        this.prisma.exam.count({
+          where: { group: { branch_id: branchId, tenant_id: tenantId } }
+        }),
+        this.prisma.grade.findMany({
+          where: { exam: { group: { branch_id: branchId, tenant_id: tenantId } } },
+          select: { score: true, exam: { select: { max_score: true } } }
+        })
+      ]);
 
-    let avgScore = 0;
-    if (grades.length > 0) {
-      // Normalize to 10-point scale for the average display
-      const totalNormalized = grades.reduce((acc, g) => acc + (g.score / g.exam.max_score * 10), 0);
-      avgScore = totalNormalized / grades.length;
-    }
-
-    const settings = (branch.settings as any)?.grading_system || {
-      method: '10-ball',
-      thresholds: [
-        { label: "A'lo", range: '9-10', type: 'success' },
-        { label: 'Yaxshi', range: '7-8', type: 'primary' },
-        { label: 'Qoniqarli', range: '5-6', type: 'warning' },
-        { label: 'Qoniqarsiz', range: '0-4', type: 'danger' }
-      ]
-    };
-
-    return {
-      settings,
-      stats: {
-        totalExams,
-        averageScore: Number(avgScore.toFixed(1))
+      let avgScore = 0;
+      if (grades.length > 0) {
+        // Normalize to 10-point scale for the average display
+        const totalNormalized = grades.reduce((acc, g) => acc + (g.score / g.exam.max_score * 10), 0);
+        avgScore = totalNormalized / grades.length;
       }
-    };
+
+      const settings = (branch.settings as any)?.grading_system || {
+        method: '10-ball',
+        thresholds: [
+          { label: "A'lo", range: '9-10', type: 'success' },
+          { label: 'Yaxshi', range: '7-8', type: 'primary' },
+          { label: 'Qoniqarli', range: '5-6', type: 'warning' },
+          { label: 'Qoniqarsiz', range: '0-4', type: 'danger' }
+        ]
+      };
+
+      return {
+        settings,
+        stats: {
+          totalExams,
+          averageScore: Number(avgScore.toFixed(1))
+        }
+      };
+    } catch (e: any) {
+      console.error("GET GRADING SETTINGS ERROR", e);
+      throw e;
+    }
   }
 
   async updateGradingSettings(tenantId: string, branchId: string, data: any) {

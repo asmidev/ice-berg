@@ -7,7 +7,7 @@ export class StaffAttendanceController {
   constructor(private readonly service: StaffAttendanceService) {}
 
   @Get('list')
-  @SetPermissions('staff.view')
+  @SetPermissions('staff_attendance.view')
   async getStaffList(
     @Req() req: any,
     @Query('branch_id') branchId: string,
@@ -25,7 +25,7 @@ export class StaffAttendanceController {
   }
 
   @Post('mark')
-  @SetPermissions('staff.update')
+  @SetPermissions('staff_attendance.mark')
   async markAttendance(
     @Req() req: any,
     @Body() data: any
@@ -42,7 +42,7 @@ export class StaffAttendanceController {
   }
 
   @Get('stats')
-  @SetPermissions('staff.view')
+  @SetPermissions('staff_attendance.view')
   async getStats(
     @Req() req: any,
     @Query('branch_id') branchId: string,
@@ -56,7 +56,7 @@ export class StaffAttendanceController {
   }
 
   @Get('monthly')
-  @SetPermissions('staff.view')
+  @SetPermissions('staff_attendance.view')
   async getMonthly(
     @Req() req: any,
     @Query('type') type: 'staff' | 'teacher',

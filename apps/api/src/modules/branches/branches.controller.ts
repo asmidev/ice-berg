@@ -37,7 +37,7 @@ export class BranchesController {
   }
 
   @Post()
-  @SetPermissions('settings.office')
+  @SetPermissions('branches.create')
   async create(@Req() req: any, @Body() body: { name: string, address?: string }) {
     try {
       return await this.branchesService.createBranch(req.user.tenantId, body);
@@ -47,7 +47,7 @@ export class BranchesController {
   }
 
   @Put(':id')
-  @SetPermissions('settings.office')
+  @SetPermissions('branches.update')
   async update(@Req() req: any, @Param('id') id: string, @Body() body: { name?: string, address?: string, settings?: any }) {
     try {
       return await this.branchesService.updateBranch(req.user.tenantId, id, body);
@@ -57,7 +57,7 @@ export class BranchesController {
   }
 
   @Post(':id/gateways')
-  @SetPermissions('settings.office')
+  @SetPermissions('branches.update')
   async updateGateways(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     try {
       return await this.branchesService.updateGateways(req.user.tenantId, id, body);
@@ -67,7 +67,7 @@ export class BranchesController {
   }
 
   @Delete(':id')
-  @SetPermissions('settings.office')
+  @SetPermissions('branches.delete')
   async remove(@Req() req: any, @Param('id') id: string) {
     try {
       return await this.branchesService.deleteBranch(req.user.tenantId, id);

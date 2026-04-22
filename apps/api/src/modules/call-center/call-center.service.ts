@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class CallCenterService {
@@ -214,6 +215,14 @@ export class CallCenterService {
         status: 'ACTIVE'
       };
 
+      if (query?.type === 'TRIAL_NO_SHOW') {
+        where.trial_date = { lt: new Date() };
+        where.trial_status = 'PENDING';
+      } else if (query?.type === 'TRIAL_NO_ENROLL') {
+        where.trial_status = 'ATTENDED';
+        // Hali o'quvchiga aylanmaganligi yuqoridagi student: null orqali kafolatlanadi
+      }
+
       if (query?.search) {
         where.OR = [
           { name: { contains: query.search, mode: 'insensitive' } },
@@ -233,6 +242,7 @@ export class CallCenterService {
             branch: true,
             manager: { select: { first_name: true, last_name: true } },
             course: true,
+            promotion: { select: { name: true } },
             callCenterTasks: {
               where: { status: { in: ['PENDING', 'CALLED'] } },
               include: { staff: { select: { first_name: true, last_name: true } } },
@@ -256,6 +266,7 @@ export class CallCenterService {
           phone: lead.phone
         },
         enrollments: lead.course ? [{ group: { name: lead.course.name } }] : [],
+        promotionName: lead.promotion?.name || null,
         invoices: []
       }));
 
@@ -270,6 +281,21 @@ export class CallCenterService {
       };
     } catch (e: any) {
       console.error("GET LEADS ERROR", e);
+      throw e;
+    }
+  }
+
+  async updateLeadTrial(tenantId: string, leadId: string, data: { trialStatus?: string, trialDate?: string }) {
+    try {
+      return await this.prisma.lead.update({
+        where: { id: leadId, tenant_id: tenantId },
+        data: {
+          trial_status: data.trialStatus,
+          trial_date: data.trialDate ? new Date(data.trialDate) : undefined
+        }
+      });
+    } catch (e: any) {
+      console.error("UPDATE LEAD TRIAL ERROR", e);
       throw e;
     }
   }
@@ -331,6 +357,87 @@ export class CallCenterService {
       });
     } catch (e: any) {
       console.error("RESOLVE TASK ERROR", e);
+      throw e;
+    }
+  }
+
+  async exportLeadsToExcel(tenantId: string, branchId?: string, query?: any) {
+    try {
+      let data: any[] = [];
+      let filename = 'export.xlsx';
+
+      if (query.category === 'KELMAGAN') {
+        // Sinov darsiga kelmaganlar
+        const leads = await this.prisma.lead.findMany({
+          where: {
+            tenant_id: tenantId,
+            branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+            trial_status: 'NO_SHOW'
+          },
+          include: { source: true, course: true }
+        });
+        data = leads.map(l => ({
+          'Ism': l.name,
+          'Telefon': l.phone,
+          'Manba': l.source?.name || '',
+          'Kurs': l.course?.name || '',
+          'Sinov sanasi': l.trial_date?.toLocaleDateString() || '',
+          'Izoh': l.notes || ''
+        }));
+        filename = 'sinovga_kelmaganlar.xlsx';
+      } else if (query.category === 'KELGAN') {
+        // Sinov darsiga kelganlar
+        const leads = await this.prisma.lead.findMany({
+          where: {
+            tenant_id: tenantId,
+            branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+            trial_status: 'ATTENDED'
+          },
+          include: { source: true, course: true }
+        });
+        data = leads.map(l => ({
+          'Ism': l.name,
+          'Telefon': l.phone,
+          'Manba': l.source?.name || '',
+          'Kurs': l.course?.name || '',
+          'Sinov sanasi': l.trial_date?.toLocaleDateString() || '',
+          'Holati': l.status === 'CONVERTED' ? 'Guruhga yozildi' : 'Yozilmadi',
+          'Izoh': l.notes || ''
+        }));
+        filename = 'sinovga_kelganlar.xlsx';
+      } else if (query.category === 'TOHTATGAN') {
+        // Keyin kelishni to'xtatganlar (Removed students)
+        const students = await this.prisma.student.findMany({
+          where: {
+            tenant_id: tenantId,
+            branch_id: branchId && branchId !== 'all' ? branchId : undefined,
+            status: 'REMOVED'
+          },
+          include: { user: true, enrollments: { include: { group: true } } }
+        });
+        data = students.map(s => ({
+          'Ism': `${s.user.first_name} ${s.user.last_name}`,
+          'Telefon': s.user.phone,
+          'Guruh': s.enrollments?.[0]?.group?.name || '',
+          'Chiqish sanasi': (s as any).left_at?.toLocaleDateString() || '',
+          'Sabab': (s as any).archive_reason || ''
+        }));
+        filename = 'chiqib_ketganlar.xlsx';
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
+      
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      return {
+        buffer: buffer.toString('base64'),
+        filename,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      };
+    } catch (e: any) {
+      console.error("EXPORT ERROR", e);
       throw e;
     }
   }

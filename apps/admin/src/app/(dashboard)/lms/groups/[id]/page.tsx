@@ -132,7 +132,19 @@ export default function GroupDetailsPage() {
     }
     
     return dates;
-  }, [group]);
+  }, [group, months]);
+
+  const progressData = useMemo(() => {
+    if (lessonDays.length === 0) return { percent: 0, passed: 0, total: 0 };
+    const today = formatDateUz(new Date());
+    const passedLessons = lessonDays.filter((d: { dateStr: string }) => d.dateStr < today).length;
+    const totalLessons = lessonDays.length;
+    return {
+      percent: Math.round((passedLessons / totalLessons) * 100),
+      passed: passedLessons,
+      total: totalLessons
+    };
+  }, [lessonDays]);
 
   useEffect(() => {
     if (activeTab === 'davomat' && lessonDays.length > 0) {
@@ -176,8 +188,8 @@ export default function GroupDetailsPage() {
   };
 
   const toggleStudentDiscountSelect = (studentId: string) => {
-    setSelectedStudentsForDiscount(prev => 
-      prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]
+    setSelectedStudentsForDiscount((prev: string[]) => 
+      prev.includes(studentId) ? prev.filter((id: string) => id !== studentId) : [...prev, studentId]
     );
   };
 
@@ -281,15 +293,26 @@ export default function GroupDetailsPage() {
                    </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100/50">
-                   <div className="flex justify-between items-center mb-2">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">O'tilgan darslar</span>
-                      <span className="text-xs font-black text-pink-600">{group.current_stage || 0} ta</span>
-                   </div>
-                   <p className="text-[10px] text-gray-400 font-bold mt-1">
-                     Hafta kunlari: <span className="text-emerald-500">{group.schedules?.length > 0 ? group.schedules.map((s: any) => getUzbekDayName(s.day_of_week)).join(', ') : 'Belgilanmagan'}</span>
-                   </p>
-                </div>
+                 <div className="pt-4 border-t border-gray-100/50">
+                    <div className="flex justify-between items-center mb-2">
+                       <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">O'tilgan darslar</span>
+                       <span className="text-xs font-black text-pink-600">{progressData.passed} / {progressData.total} ta</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+                       <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progressData.percent}%` }}
+                          className="h-full bg-pink-500 rounded-full"
+                       />
+                    </div>
+                    <div className="flex justify-between items-center">
+                       <span className="text-[10px] font-bold text-gray-400">Progress</span>
+                       <span className="text-[10px] font-black text-pink-600">{progressData.percent}%</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-bold mt-2">
+                      Hafta kunlari: <span className="text-emerald-500">{group.schedules?.length > 0 ? group.schedules.map((s: any) => getUzbekDayName(s.day_of_week)).join(', ') : 'Belgilanmagan'}</span>
+                    </p>
+                 </div>
              </div>
           </Card>
 
@@ -321,6 +344,7 @@ export default function GroupDetailsPage() {
                     <motion.div 
                       key={e.id} 
                       className="flex items-center justify-between p-2 rounded-xl group hover:bg-gray-50 transition-all cursor-pointer"
+                      onClick={() => router.push(`/students/${e.student?.id}`)}
                     >
                        <div className="flex items-center gap-3">
                           <span className="text-[10px] font-black text-gray-300 w-4">{idx + 1}</span>
@@ -415,28 +439,28 @@ export default function GroupDetailsPage() {
                           <table className="w-full border-collapse">
                              <thead>
                                 <tr className="bg-gray-50/50 border-b border-gray-100">
-                                   <th className="sticky left-0 z-20 bg-gray-50 py-4 px-6 min-w-[220px] text-left text-[11px] font-black text-gray-500 uppercase tracking-widest border-r border-gray-100">TALABALAR</th>
-                                   {lessonDays.map(d => (
-                                     <th 
-                                       key={d.dateStr} 
-                                       id={`day-col-${d.dateStr}`}
-                                       className="py-4 px-2 min-w-[55px] text-center text-[10px] font-bold text-gray-400 uppercase tracking-tight border-r border-gray-100/50"
-                                     >
-                                       {d.formatted}
-                                     </th>
-                                   ))}
+                                    <th className="sticky left-0 z-20 bg-gray-50 py-4 px-6 min-w-[220px] text-left text-[11px] font-black text-gray-500 uppercase tracking-widest border-r border-gray-100">TALABALAR</th>
+                                    {lessonDays.map((d: any) => (
+                                      <th 
+                                        key={d.dateStr} 
+                                        id={`day-col-${d.dateStr}`}
+                                        className="py-4 px-2 min-w-[55px] text-center text-[10px] font-bold text-gray-400 uppercase tracking-tight border-r border-gray-100/50"
+                                      >
+                                        {d.formatted}
+                                      </th>
+                                    ))}
                                 </tr>
                              </thead>
                              <tbody className="divide-y divide-gray-100/50">
                                 {students.map((e: any, sIdx: number) => (
                                   <tr key={e.id} className="hover:bg-gray-50/30 transition-all">
-                                     <td className="sticky left-0 z-10 bg-white py-3.5 px-6 border-r border-gray-100 font-bold text-gray-700 font-poppins">
+                                     <td className="sticky left-0 z-10 bg-white py-3.5 px-6 border-r border-gray-100 font-bold text-gray-700 font-poppins cursor-pointer hover:text-pink-600" onClick={() => router.push(`/students/${e.student?.id}`)}>
                                         <div className="flex items-center gap-4">
                                            <span className="text-[10px] font-black text-gray-300 w-3">{sIdx + 1}</span>
                                            <span className="text-[13px] truncate max-w-[160px] tracking-tight">{e.student?.user?.first_name} {e.student?.user?.last_name}</span>
                                         </div>
                                      </td>
-                                     {lessonDays.map(d => {
+                                     {lessonDays.map((d: any) => {
                                        const stdAtnd = attendanceData?.students?.find((s: any) => s.enrollmentId === e.id);
                                        const hasAttendance = stdAtnd?.attendances?.find((a: any) => a.date?.split('T')[0] === d.dateStr);
                                        
@@ -519,11 +543,11 @@ export default function GroupDetailsPage() {
                                           </div>
                                        </div>
                                     </td>
-                                    <td className="py-4 px-6 text-center">
-                                       <Badge variant="outline" className="rounded-lg bg-pink-50/50 border-pink-100 text-pink-600 font-bold text-[10px]">
-                                          {e.avgScore.toFixed(1)}
-                                       </Badge>
-                                    </td>
+                                     <td className="py-4 px-6 text-center">
+                                        <Badge className="rounded-lg bg-pink-50/50 border-pink-100 text-pink-600 font-bold text-[10px] hover:bg-pink-100">
+                                           {e.avgScore.toFixed(1)}
+                                        </Badge>
+                                     </td>
                                     <td className="py-4 px-6 text-center text-sm font-black text-gray-800">
                                        {e.totalScore}
                                     </td>

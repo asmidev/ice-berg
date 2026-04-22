@@ -316,10 +316,31 @@ exports.Prisma.LeadScalarFieldEnum = {
   branch_id: 'branch_id',
   source_id: 'source_id',
   stage_id: 'stage_id',
+  course_id: 'course_id',
   archive_reason: 'archive_reason',
   status: 'status',
   converted_at: 'converted_at',
-  course_id: 'course_id'
+  trial_date: 'trial_date',
+  trial_status: 'trial_status',
+  promotion_id: 'promotion_id'
+};
+
+exports.Prisma.PromotionScalarFieldEnum = {
+  id: 'id',
+  tenant_id: 'tenant_id',
+  branch_id: 'branch_id',
+  name: 'name',
+  date: 'date',
+  manager_id: 'manager_id',
+  created_at: 'created_at'
+};
+
+exports.Prisma.PromotionClassScalarFieldEnum = {
+  id: 'id',
+  promotion_id: 'promotion_id',
+  name: 'name',
+  notes: 'notes',
+  count: 'count'
 };
 
 exports.Prisma.CrmTaskScalarFieldEnum = {
@@ -389,6 +410,8 @@ exports.Prisma.EnrollmentScalarFieldEnum = {
   student_id: 'student_id',
   group_id: 'group_id',
   enrolled_at: 'enrolled_at',
+  joined_at: 'joined_at',
+  left_at: 'left_at',
   status: 'status'
 };
 
@@ -851,6 +874,8 @@ exports.Prisma.ModelName = {
   ArchiveReason: 'ArchiveReason',
   StudentArchiveReason: 'StudentArchiveReason',
   Lead: 'Lead',
+  Promotion: 'Promotion',
+  PromotionClass: 'PromotionClass',
   CrmTask: 'CrmTask',
   Course: 'Course',
   Group: 'Group',

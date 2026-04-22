@@ -8,7 +8,7 @@ export class InventoryController {
 
   // Categories
   @Get('categories')
-  @SetPermissions('inventory.products.view')
+  @SetPermissions('inventory.categories.view')
   async getCategories(@Req() req: any) {
     try {
       return await this.inventoryService.getCategories(req.user.tenantId);
@@ -18,7 +18,7 @@ export class InventoryController {
   }
 
   @Post('categories')
-  @SetPermissions('inventory.products.create')
+  @SetPermissions('inventory.categories.create')
   async createCategory(@Req() req: any, @Body('name') name: string) {
     try {
       return await this.inventoryService.createCategory(req.user.tenantId, name);
@@ -28,7 +28,7 @@ export class InventoryController {
   }
 
   @Put('categories/:id')
-  @SetPermissions('inventory.products.update')
+  @SetPermissions('inventory.categories.update')
   async updateCategory(@Req() req: any, @Param('id') id: string, @Body('name') name: string) {
     try {
       return await this.inventoryService.updateCategory(req.user.tenantId, id, name);
@@ -38,7 +38,7 @@ export class InventoryController {
   }
 
   @Delete('categories/:id')
-  @SetPermissions('inventory.products.delete')
+  @SetPermissions('inventory.categories.delete')
   async deleteCategory(@Req() req: any, @Param('id') id: string) {
     try {
       return await this.inventoryService.deleteCategory(req.user.tenantId, id);

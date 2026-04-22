@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useReactToPrint } from 'react-to-print';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { 
   Search, Filter, Plus, User, Phone, Wallet, MessageSquare, MoreHorizontal, 
   RotateCcw, Trash2, ArrowRight, CheckCircle2, AlertCircle, Calendar, GraduationCap,
-  CreditCard, Banknote, History, Sparkles, Building2, LayoutGrid, X, Mail, Send, Info, Flag, RefreshCw
+  CreditCard, Banknote, History, Sparkles, Building2, LayoutGrid, X, Mail, Send, Info, Flag, RefreshCw,
+  Printer, Star
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -79,6 +81,12 @@ export default function FinanceDebtorsPage() {
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  
+  // Printing State
+  const [printPayment, setPrintPayment] = useState<any>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({ contentRef: printRef });
+  const [branchSettings, setBranchSettings] = useState<any>({});
   
   // Forms
   const [paymentForm, setPaymentForm] = useState({
@@ -158,6 +166,11 @@ export default function FinanceDebtorsPage() {
       setTemplates(tempRes.data?.data || tempRes.data || []);
       setPaymentCategories(categoriesRes.data || []);
       setGateways(branchRes.data?.settings?.gateways || {});
+      setBranchSettings(branchRes.data?.settings || {
+        receipt_branch_name: branchRes.data?.name || '',
+        receipt_header: '⭐⭐⭐ ICE BERG ⭐⭐⭐',
+        receipt_footer: 'Bizni tanlaganingiz uchun tashakkur!\nIjtimoiy tarmoqlar: @ice_berg_edu',
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -204,7 +217,7 @@ export default function FinanceDebtorsPage() {
     const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
     try {
-      await api.post('/finance/payments', {
+      const res = await api.post('/finance/payments', {
         ...paymentForm,
         student_id: selectedStudent.id,
         amount: totalAmount,
@@ -213,6 +226,25 @@ export default function FinanceDebtorsPage() {
         type: paymentForm.payment_method,
         branch_id: selectedStudent.branch_id
       });
+      
+      // Chek uchun ma'lumotlarni tayyorlash
+      const paymentData = res.data?.data || res.data;
+      
+      // Guruh va o'qituvchi ma'lumotlarini invoice dan olish
+      const firstInvoice = unpaidInvoices.find(i => selectedInvoices.includes(i.id));
+      
+      setPrintPayment({
+        ...paymentData,
+        student: selectedStudent,
+        group: firstInvoice?.group,
+        branch: branchSettings,
+        payment_method: paymentForm.payment_method,
+        // Qolgan qarzni hisoblash (to'lovdan keyin)
+        remaining_debt: unpaidInvoices
+          .filter(inv => !selectedInvoices.includes(inv.id))
+          .reduce((sum, inv) => sum + (Number(inv.amount) - Number(inv.paid_amount)), 0)
+      });
+
       setIsPaymentModalOpen(false);
       fetchData();
       showToast("To'lov muvaffaqiyatli qabul qilindi", 'success');
@@ -600,43 +632,58 @@ export default function FinanceDebtorsPage() {
                </div>
                 <div className="space-y-2">
                    <Label className="text-[11px] font-bold text-zinc-400 uppercase ml-1">Qaysi oylar (qarzlar) uchun?</Label>
-                   <div className="bg-[#f8f9fa] rounded-xl p-3 max-h-[160px] overflow-y-auto space-y-2">
-                      {unpaidInvoices.length === 0 ? (
-                         <div className="text-sm font-bold text-zinc-400 text-center py-4">To'lanmagan oylar topilmadi guruhdan qarzi yo'q.</div>
-                      ) : (
-                         unpaidInvoices.map(inv => {
-                            const leftToPay = Number(inv.amount) - Number(inv.paid_amount);
-                            const isChecked = selectedInvoices.includes(inv.id);
-                            
-                            let labelContent = inv.month;
-                            if (inv.type === 'COURSE' && inv.group?.start_date && inv.group?.end_date) {
-                              const sd = new Date(inv.group.start_date).toLocaleDateString('uz-UZ');
-                              const ed = new Date(inv.group.end_date).toLocaleDateString('uz-UZ');
-                              const td = new Date().toLocaleDateString('uz-UZ');
-                              labelContent = `${sd} dan ${ed} gacha (To'lov: ${td})`;
-                            }
+                    <div className="bg-[#f8f9fa] rounded-xl p-3 max-h-[160px] overflow-y-auto space-y-2">
+                       {unpaidInvoices.length === 0 ? (
+                          <div className="text-sm font-bold text-zinc-400 text-center py-4">To'lanmagan oylar topilmadi guruhdan qarzi yo'q.</div>
+                       ) : (
+                          unpaidInvoices.map(inv => {
+                             const leftToPay = Number(inv.amount) - Number(inv.paid_amount);
+                             const isChecked = selectedInvoices.includes(inv.id);
+                               let labelContent = inv.month;
+                             let deadlineDate: Date | null = null;
+                             if (inv.type === 'COURSE' && inv.group?.start_date && inv.group?.end_date) {
+                               const sd = new Date(inv.group.start_date).toLocaleDateString('uz-UZ');
+                               const ed = new Date(inv.group.end_date).toLocaleDateString('uz-UZ');
+                               const td = new Date().toLocaleDateString('uz-UZ');
+                               labelContent = `${sd} dan ${ed} gacha (To'lov: ${td})`;
+                               
+                               deadlineDate = new Date(inv.group.start_date);
+                               deadlineDate.setDate(deadlineDate.getDate() + 10);
+                             }
 
-                            return (
-                               <label key={inv.id} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border ${isChecked ? 'bg-white border-[#17c1e8] shadow-sm' : 'bg-transparent border-zinc-200 hover:border-zinc-300'}`}>
-                                  <input 
-                                     type="checkbox" 
-                                     checked={isChecked}
-                                     onChange={(e) => {
-                                        if (e.target.checked) setSelectedInvoices([...selectedInvoices, inv.id]);
-                                        else setSelectedInvoices(selectedInvoices.filter(id => id !== inv.id));
-                                     }}
-                                     className="rounded text-[#17c1e8] focus:ring-[#17c1e8]"
-                                  />
-                                  <div className="flex-1 flex flex-col">
-                                     <span className="text-[13px] font-bold text-zinc-700">{labelContent}</span>
-                                     <span className="text-[11px] font-medium text-zinc-400 mt-0.5">{inv.type === 'COURSE' ? 'Kurs u.n' : inv.type}</span>
-                                  </div>
-                                  <span className="text-[14px] font-black text-rose-500">{leftToPay.toLocaleString()}</span>
-                               </label>
-                            )
-                         })
-                      )}
-                   </div>
+                             const isOverdue = deadlineDate && new Date() > deadlineDate;
+
+                             return (
+                                <label key={inv.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors border ${isChecked ? 'bg-white border-[#17c1e8] shadow-sm' : 'bg-transparent border-zinc-200 hover:border-zinc-300'}`}>
+                                   <input 
+                                      type="checkbox" 
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                         if (e.target.checked) setSelectedInvoices([...selectedInvoices, inv.id]);
+                                         else setSelectedInvoices(selectedInvoices.filter(id => id !== inv.id));
+                                      }}
+                                      className="rounded text-[#17c1e8] focus:ring-[#17c1e8]"
+                                   />
+                                   <div className="flex-1 flex flex-col">
+                                      <div className="flex items-center gap-2">
+                                         <span className="text-[13px] font-bold text-zinc-700">{labelContent}</span>
+                                         {isOverdue && (
+                                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-100 text-[9px] font-black h-4 px-1 flex items-center gap-1">
+                                               <AlertCircle size={8} /> 10 KUNLIK MUDDAT O'TGAN
+                                            </Badge>
+                                         )}
+                                      </div>
+                                      <span className="text-[11px] font-medium text-zinc-400 mt-0.5">
+                                         {inv.type === 'COURSE' ? 'Kurs u.n' : inv.type} 
+                                         {deadlineDate && ` • To'lov muddati: ${deadlineDate.toLocaleDateString('uz-UZ')}`}
+                                      </span>
+                                   </div>
+                                   <span className="text-[14px] font-black text-rose-500">{leftToPay.toLocaleString()}</span>
+                                </label>
+                             )
+                          })
+                       )}
+                    </div>
                 </div>
                 <div className="space-y-1.5 pt-2 border-t border-zinc-100">
                    <div className="flex justify-between items-center px-1">
@@ -730,6 +777,86 @@ export default function FinanceDebtorsPage() {
              </div>
           </DialogContent>
        </Dialog>
-    </div>
+
+        {/* --- 🧾 PREMIUM RECEIPT MODAL --- */}
+        <Dialog open={!!printPayment} onOpenChange={o => !o && setPrintPayment(null)}>
+           <DialogContent className="sm:max-w-[450px] rounded-[2rem] p-0 border-none shadow-2xl bg-white overflow-hidden selection:bg-pink-100">
+              <div className="p-8 flex flex-col items-center">
+                 <div ref={printRef} className="w-full bg-white text-black p-6 rounded-2xl border border-gray-100 flex flex-col items-center text-center font-sans">
+                    <div className="mb-6 flex flex-col items-center w-full">
+                       <div className="w-full py-6 bg-gradient-to-r from-[#1a2b4b] to-[#0d1a33] rounded-2xl mb-4 flex items-center justify-center shadow-lg">
+                          <img src="/Frame 341.png" alt="Ice Berg Logo" className="h-20 object-contain" />
+                       </div>
+                       <div className="flex items-center gap-1.5">
+                          <span className="text-[12px] font-black tracking-[0.3em] text-gray-400 uppercase">Kids</span>
+                          <Sparkles size={14} className="text-amber-500 fill-amber-500" />
+                       </div>
+                    </div>
+                    <div className="w-full border-t border-dashed border-gray-200 mb-8" />
+                    <div className="space-y-2 mb-8">
+                       <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">
+                          {printPayment?.group?.name || 'MAXSUS TO\'LOV'}
+                       </h3>
+                       {printPayment?.group?.start_date && (
+                          <p className="text-[13px] font-black text-gray-600">
+                             {new Date(printPayment.group.start_date).toLocaleDateString('uz-UZ')} - {new Date(printPayment.group.end_date || Date.now()).toLocaleDateString('uz-UZ')}
+                          </p>
+                       )}
+                       <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest pt-1">
+                          To'lov qilingan sana : {new Date(printPayment?.created_at || Date.now()).toLocaleDateString('uz-UZ')}
+                       </p>
+                    </div>
+                    <div className="mb-10">
+                       <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                          {Number(printPayment?.amount || 0).toLocaleString()} UZS
+                       </h1>
+                    </div>
+                    <div className="w-full border-t border-gray-900 border-[1px] mb-8" />
+                    <div className="w-full space-y-4 text-left px-2">
+                       <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                          <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Chek kodi:</span>
+                          <span className="text-[13px] font-black text-gray-900">#{printPayment?.id?.split('-')[0].toUpperCase() || 'ERROR'}</span>
+                       </div>
+                       <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                          <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Mijoz:</span>
+                          <span className="text-[13px] font-black text-gray-900 uppercase">
+                             {printPayment?.student?.user?.first_name} {printPayment?.student?.user?.last_name}
+                          </span>
+                       </div>
+                       <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                          <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">O'qituvchi:</span>
+                          <span className="text-[13px] font-black text-gray-900 uppercase">
+                             {printPayment?.group?.teacher?.user?.first_name || 'NOMA\'LUM'} {printPayment?.group?.teacher?.user?.last_name || ''}
+                          </span>
+                       </div>
+                       <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                          <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">To'lov turi:</span>
+                          <span className="text-[13px] font-black text-indigo-600 uppercase">
+                             {printPayment?.payment_method === 'cash' ? 'Naqd Pul' : 'Plastik Karta'}
+                          </span>
+                       </div>
+                       <div className="flex justify-between items-center pt-2">
+                          <span className="text-[11px] font-black text-rose-400 uppercase tracking-widest">Qolgan qarz:</span>
+                          <span className="text-[15px] font-black text-rose-600">
+                             {Number(printPayment?.remaining_debt || 0).toLocaleString()} UZS
+                          </span>
+                       </div>
+                    </div>
+                    <div className="w-full border-t border-dashed border-gray-200 mt-10 mb-6" />
+                    <div className="space-y-1.5">
+                       <p className="text-[11px] font-bold text-gray-400">Bizni tanlaganingiz uchun tashakkur!</p>
+                       <p className="text-[11px] font-black text-gray-900 uppercase tracking-wider">Ijtimoiy tarmoqlar: @ice_berg_edu</p>
+                    </div>
+                 </div>
+                 <div className="mt-8 flex gap-3 w-full">
+                    <Button variant="ghost" onClick={() => setPrintPayment(null)} className="flex-1 h-12 rounded-2xl font-black text-[11px] uppercase tracking-widest text-gray-400">Yopish</Button>
+                    <Button onClick={() => handlePrint()} className="flex-1 h-12 bg-[#1E3A5F] hover:bg-navy-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-navy-100 border-none transition-all">
+                       <Printer size={16} className="mr-2" /> Chop etish
+                    </Button>
+                 </div>
+              </div>
+           </DialogContent>
+        </Dialog>
+     </div>
   );
 }

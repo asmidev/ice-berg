@@ -108,6 +108,11 @@ export const PERMISSIONS: Permission[] = [
   { slug: 'callcenter.leads', name: "CRM lidlar ro'yxatini ko'rish (aloqa uchun)", category: "Call Center (Aloqa markazi)" },
   { slug: 'callcenter.interaction', name: "Mijozlar bilan qilingan aloqalar tarixini yozish", category: "Call Center (Aloqa markazi)" },
   { slug: 'callcenter.resolve', name: "Call-center vazifalarini 'Bajarildi' deb belgilash", category: "Call Center (Aloqa markazi)" },
+  
+  // --- TARG'IBOT (PROMOTION) ---
+  { slug: 'promotions.view', name: "Targ'ibot tadbirlarini ko'rish", category: "Targ'ibot (Promotion)" },
+  { slug: 'promotions.create', name: "Yangi targ'ibot tadbiri qo'shish", category: "Targ'ibot (Promotion)" },
+  { slug: 'promotions.update', name: "Targ'ibot ma'lumotlarini tahrirlash", category: "Targ'ibot (Promotion)" },
 
   // --- CHEGIRMALAR (DISCOUNTS) ---
   { slug: 'discounts.analytics', name: "Chegirmalar statistikasini va tahlilini ko'rish", category: "Chegirmalar (Discounts)" },
@@ -146,10 +151,15 @@ export const PERMISSIONS: Permission[] = [
   { slug: 'settings.integrations', name: "Tashqi integratsiyalarni sozlash", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'branches.view', name: "Filiallar ro'yxatini ko'rish", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'branches.create', name: "Yangi filial qo'shish", category: "Tizim va Ofis Sozlamalari" },
+  { slug: 'branches.update', name: "Filial ma'lumotlarini tahrirlash", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'branches.delete', name: "Filialni o'chirish", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'settings.attendance_penalty_amount', name: "Tizim davomat jarimasi miqdorini tahrirlash", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'settings.attendance_penalty_time', name: "Tizim davomat jarimasi kutish vaqtini tahrirlash", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'settings.passwords', name: "Xodimlarning tizim hisobi parol va xavfsizlik sozlamalarini boshqarish", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'settings.office', name: "Umumiy ofis sozlamalari (markaz sozlamalari)", category: "Tizim va Ofis Sozlamalari" },
   { slug: 'payments.settings', name: "To'lov sozlamalari (turlari va kvitansiyalar)", category: "Moliya - To'lovlar" },
+
+  // --- TIZIM (AVTOMATIK) ---
+  { slug: 'PROFILE', name: "Talaba profili huquqi", category: "Tizim (Avtomatik)" },
+  { slug: 'LMS', name: "O'qituvchi LMS huquqi", category: "Tizim (Avtomatik)" },
 ];

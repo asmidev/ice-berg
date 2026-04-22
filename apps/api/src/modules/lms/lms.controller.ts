@@ -189,9 +189,9 @@ export class LmsController {
 
   @Post('groups/:id/enroll')
   @SetPermissions('groups.update')
-  async enrollStudents(@Req() req: any, @Param('id') id: string, @Body('studentIds') studentIds: string[]) {
+  async enrollStudents(@Req() req: any, @Param('id') id: string, @Body() data: { studentIds: string[], activation_date?: string }) {
     try {
-      return await this.lmsService.enrollStudents(req.user.tenantId, id, studentIds);
+      return await this.lmsService.enrollStudents(req.user.tenantId, id, data.studentIds, data.activation_date);
     } catch (e: any) {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -209,9 +209,9 @@ export class LmsController {
 
   @Get('enrollments/:id/unenroll-calc')
   @SetPermissions('groups.update')
-  async getUnenrollmentCalc(@Req() req: any, @Param('id') id: string) {
+  async getUnenrollmentCalc(@Req() req: any, @Param('id') id: string, @Query('leaving_date') leavingDate?: string) {
     try {
-      return await this.lmsService.calculateUnenrollmentAmount(req.user.tenantId, id);
+      return await this.lmsService.calculateUnenrollmentAmount(req.user.tenantId, id, leavingDate);
     } catch (e: any) {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -219,9 +219,9 @@ export class LmsController {
 
   @Delete('enrollments/:id/unenroll')
   @SetPermissions('groups.update')
-  async unenrollStudent(@Req() req: any, @Param('id') id: string) {
+  async unenrollStudent(@Req() req: any, @Param('id') id: string, @Body('leaving_date') leavingDate?: string) {
     try {
-      return await this.lmsService.unenrollStudent(req.user.tenantId, id);
+      return await this.lmsService.unenrollStudent(req.user.tenantId, id, leavingDate);
     } catch (e: any) {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }

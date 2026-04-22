@@ -294,7 +294,7 @@ export class AnalyticsService {
     const end = endDate ? new Date(endDate) : new Date();
     where.created_at = { gte: start, lte: end };
 
-    const [totalLeads, convertedLeads, archivedLeads, stages, sources, managers, leads, reasonsData, leadsWithNotes] = await Promise.all([
+    const [totalLeads, convertedLeads, archivedLeads, stages, sources, managers, leads, reasonsData, leadsWithNotes, promotions] = await Promise.all([
       this.prisma.lead.count({ where }),
       this.prisma.lead.count({ where: { ...where, status: 'CONVERTED', converted_at: { not: null } } }),
       this.prisma.lead.count({ where: { ...where, status: 'ARCHIVED' } }),
@@ -315,7 +315,7 @@ export class AnalyticsService {
         where: { ...where, status: { notIn: ['ARCHIVED'] } },
         take: 50,
         orderBy: { created_at: 'desc' },
-        include: { stage: true, source: true, manager: true }
+        include: { stage: true, source: true, manager: true, promotion: true }
       }),
       this.prisma.lead.groupBy({
         by: ['archive_reason'],
@@ -328,11 +328,23 @@ export class AnalyticsService {
           status: 'ARCHIVED',
           notes: { not: null, notIn: [''] } 
         } 
+      }),
+      this.prisma.promotion.findMany({
+        where: { tenant_id: tenantId, branch_id: branchId && branchId !== 'all' ? branchId : undefined },
+        include: { _count: { select: { leads: { where } } } }
       })
     ]);
 
     const funnelData = stages.map(s => ({ name: s.name, count: s._count.leads }));
+    
+    // Combine regular sources with promotions
     const sourceData = sources.map(s => ({ name: s.name, value: s._count.leads }));
+    promotions.forEach(p => {
+      if (p._count.leads > 0) {
+        sourceData.push({ name: `Tadbir: ${p.name}`, value: p._count.leads });
+      }
+    });
+
     const managerData = managers.map(m => ({ 
       name: `${m.first_name} ${m.last_name}`, 
       count: m._count.managedLeads 
@@ -369,7 +381,7 @@ export class AnalyticsService {
         status: l.status,
         date: l.created_at,
         stage: l.stage?.name || 'Noma\'lum',
-        source: l.source?.name || 'Noma\'lum',
+        source: l.promotion_id ? `Tadbir: ${l.promotion?.name}` : (l.source?.name || 'Noma\'lum'),
         manager: l.manager ? `${l.manager.first_name} ${l.manager.last_name}` : 'Biriktirilmagan'
       }))
     };
