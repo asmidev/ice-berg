@@ -620,6 +620,81 @@ export class StudentsService {
     }
   }
 
+  async bulkCreateStudents(tenantId: string, studentsData: any[]) {
+    try {
+      let studentRole = await this.prisma.role.findUnique({ where: { slug: 'student' } });
+      if (!studentRole) {
+        studentRole = await this.prisma.role.create({
+          data: { name: 'Talaba', slug: 'student', permissions: ['PROFILE'] }
+        });
+      }
+
+      const results = {
+        success: 0,
+        errors: [] as string[]
+      };
+
+      await this.prisma.$transaction(async (prisma) => {
+        for (const data of studentsData) {
+          try {
+            // Check if user already exists
+            const phone = String(data['Telefon'] || data['phone'] || '').replace(/\s/g, '');
+            if (!phone) {
+              results.errors.push(`Qatorda telefon raqami yo'q`);
+              continue;
+            }
+
+            const existingUser = await prisma.user.findUnique({ where: { phone } });
+            if (existingUser) {
+              results.errors.push(`${phone} raqamli foydalanuvchi allaqachon mavjud`);
+              continue;
+            }
+
+            const firstName = data['Ism'] || data['firstName'] || 'Ismsiz';
+            const lastName = data['Familiya'] || data['lastName'] || '';
+            const password = data['Parol'] || data['password'] || '123456';
+            const hashedPassword = await bcrypt.hash(String(password), 10);
+
+            const user = await prisma.user.create({
+              data: {
+                tenant_id: tenantId,
+                phone: phone,
+                first_name: firstName,
+                last_name: lastName,
+                gender: data['Jinsi'] === 'Ayol' ? 'FEMALE' : (data['Jinsi'] === 'Erkak' ? 'MALE' : null),
+                password_hash: hashedPassword,
+                role_id: studentRole!.id,
+              }
+            });
+
+            await prisma.student.create({
+              data: {
+                tenant_id: tenantId,
+                branch_id: data.branchId || null,
+                user_id: user.id,
+                status: StudentStatus.ACTIVE,
+                date_of_birth: data['Tug\'ilgan sana'] ? new Date(data['Tug\'ilgan sana']) : null,
+              }
+            });
+
+            results.success++;
+          } catch (e: any) {
+            results.errors.push(`Xatolik: ${e.message}`);
+          }
+        }
+
+        if (results.success === 0 && results.errors.length > 0) {
+          throw new Error('Hech qanday talaba qo\'shilmadi: ' + results.errors[0]);
+        }
+      });
+
+      return results;
+    } catch (err: any) {
+      console.error(err);
+      throw new HttpException(err.message || 'Ommaviy yaratishda xatolik', 500);
+    }
+  }
+
   async getStudentById(tenantId: string, id: string, branchId?: string) {
     const whereClause: any = { id, tenant_id: tenantId };
     if (branchId && branchId !== 'all') whereClause.branch_id = branchId;

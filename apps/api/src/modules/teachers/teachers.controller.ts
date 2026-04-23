@@ -150,4 +150,14 @@ export class TeachersController {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  @Post('bulk')
+  @SetPermissions('teachers.create')
+  async bulkCreate(@Req() req: any, @Body() body: any) {
+    try {
+      return await this.teachersService.bulkCreateTeachers(req.user.tenantId, body);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

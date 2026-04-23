@@ -731,4 +731,73 @@ export class TeachersService {
       data: { tenant_id: tenantId, name }
     });
   }
+
+  async bulkCreateTeachers(tenantId: string, data: { branchId: string, teachers: any[] }) {
+    const { branchId, teachers } = data;
+
+    return await this.prisma.$transaction(async (prisma) => {
+      const errors = [];
+      let successCount = 0;
+
+      // 1. Get or create TEACHER role
+      let teacherRole = await prisma.role.findUnique({ where: { slug: 'teacher' } });
+      if (!teacherRole) {
+        teacherRole = await prisma.role.create({
+          data: { name: 'O\'qituvchi', slug: 'teacher', permissions: ['LMS'] }
+        });
+      }
+
+      for (const t of teachers) {
+        try {
+          // 2. Check existing
+          const existing = await prisma.user.findUnique({ where: { phone: t.phone } });
+          if (existing) {
+            errors.push(`Foydalanuvchi mavjud: ${t.phone}`);
+            continue;
+          }
+
+          const hashedPassword = await bcrypt.hash(t.password || '123456', 10);
+
+          // 3. Create User
+          const user = await prisma.user.create({
+            data: {
+              tenant_id: tenantId,
+              phone: t.phone,
+              password_hash: hashedPassword,
+              first_name: t.firstName,
+              last_name: t.lastName || '',
+              role_id: teacherRole.id,
+              is_active: true,
+              branches: {
+                connect: branchId !== 'all' ? [{ id: branchId }] : []
+              }
+            }
+          });
+
+          // 4. Create Teacher Profile
+          await prisma.teacher.create({
+            data: {
+              tenant_id: tenantId,
+              user_id: user.id,
+              branch_id: branchId !== 'all' ? branchId : null,
+              specialization: t.specialization || '',
+              salary_type: t.salaryType || 'FIXED',
+              salary_amount: Number(t.salaryAmount) || 0,
+              type: t.type || 'MAIN',
+              joined_at: new Date()
+            }
+          });
+          successCount++;
+        } catch (e: any) {
+          errors.push(`Xatolik (${t.firstName}): ${e.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        count: successCount,
+        errors
+      };
+    });
+  }
 }

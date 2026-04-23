@@ -413,9 +413,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 		const tkn =
 			localStorage.getItem('token') || localStorage.getItem('accessToken')
 		if (!tkn) {
-			window.location.href = '/login'
+			router.replace('/login')
 		} else {
-			updateBranchContext(localStorage.getItem('branch_id') || 'all')
 			api
 				.get('/branches')
 				.then(res => {

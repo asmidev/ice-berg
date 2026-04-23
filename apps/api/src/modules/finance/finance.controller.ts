@@ -148,6 +148,16 @@ export class FinanceController {
     }
   }
 
+  @Post('expenses/bulk')
+  @SetPermissions('expenses.create')
+  async bulkCreateExpenses(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.financeService.bulkCreateExpenses(req.user.tenantId, { ...data, userId: req.user.userId });
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Post('expenses/:id/archive')
   @SetPermissions('expenses.delete')
   async archiveExpense(@Req() req: any, @Param('id') id: string, @Body('reason') reason: string) {

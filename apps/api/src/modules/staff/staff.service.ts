@@ -181,4 +181,74 @@ export class StaffService {
         });
      });
   }
+
+  async bulkCreateStaff(tenantId: string, data: { branchId: string, staff: any[] }) {
+    const { branchId, staff } = data;
+
+    return await this.prisma.$transaction(async (prisma) => {
+      const errors = [];
+      let successCount = 0;
+
+      // Fetch roles for matching
+      const roles = await prisma.role.findMany();
+
+      for (const s of staff) {
+        try {
+          // 1. Check if user exists
+          const existing = await prisma.user.findUnique({ where: { phone: s.phone } });
+          if (existing) {
+            errors.push(`Foydalanuvchi mavjud: ${s.phone}`);
+            continue;
+          }
+
+          // 2. Match Role
+          let roleId = null;
+          if (s.role) {
+            const role = roles.find(r => r.name.toLowerCase() === s.role.toLowerCase() || r.slug.toLowerCase() === s.role.toLowerCase());
+            if (role) roleId = role.id;
+          }
+
+          if (!roleId) {
+             // Default to STAFF if not found? No, better skip or error.
+             errors.push(`Rol topilmadi (${s.role}): ${s.first_name}`);
+             continue;
+          }
+
+          const hashedPassword = await bcrypt.hash(s.password || '123456', 10);
+
+          const user = await prisma.user.create({
+            data: {
+              tenant_id: tenantId,
+              phone: s.phone,
+              password_hash: hashedPassword,
+              first_name: s.first_name,
+              last_name: s.last_name || '',
+              role_id: roleId,
+              is_active: true,
+              branches: {
+                connect: branchId !== 'all' ? [{ id: branchId }] : []
+              }
+            }
+          });
+
+          await prisma.staff.create({
+            data: {
+              tenant_id: tenantId,
+              user_id: user.id,
+              branch_id: branchId !== 'all' ? branchId : null
+            }
+          });
+          successCount++;
+        } catch (e: any) {
+          errors.push(`Xatolik (${s.first_name}): ${e.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        count: successCount,
+        errors
+      };
+    });
+  }
 }

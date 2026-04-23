@@ -22,6 +22,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
+import { toast as toastSonner } from 'sonner';
+import * as XLSX from 'xlsx';
 
 export default function FinanceExpensesPage() {
   const confirm = useConfirm();
@@ -31,6 +34,7 @@ export default function FinanceExpensesPage() {
   const [branchId, setBranchId] = useState('all');
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Data States
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -136,6 +140,26 @@ export default function FinanceExpensesPage() {
     }
   };
 
+  const handleExport = () => {
+    if (expenses.length === 0) return toast.error('Eksport qilish uchun ma\'lumot yo\'q');
+    
+    const exportData = expenses.map(e => ({
+      'Sana': new Date(e.created_at).toLocaleDateString(),
+      'Nomi': e.name,
+      'Kategoriya': e.category?.name || 'Yo\'q',
+      'Summa': Number(e.amount).toLocaleString() + ' UZS',
+      'To\'lov turi': e.payment_method || 'CASH',
+      'Kassa': e.cashbox?.name || 'Yo\'q',
+      'Izoh': e.description || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Xarajatlar");
+    XLSX.writeFile(wb, `Xarajatlar_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success('Excel fayl yuklandi!');
+  };
+
   useEffect(() => {
     const timeout = setTimeout(fetchData, 400);
     return () => clearTimeout(timeout);
@@ -144,6 +168,37 @@ export default function FinanceExpensesPage() {
   const totalAmount = useMemo(() => {
     return expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   }, [expenses]);
+
+  const handleImportExpenses = async (data: any[]) => {
+    try {
+      setLoading(true);
+      const res = await api.post('/finance/expenses/bulk', { 
+        branchId: branchId || 'all',
+        expenses: data.map(item => ({
+          amount: item['Summa'] || item['Amount'],
+          description: item['Izoh'] || item['Description'] || item['Sabab'],
+          category: item['Kategoriya'] || item['Category'],
+          payment_method: item["To'lov Usuli"] || item['Payment Method'] || 'CASH',
+          cashbox: item['Kassa'] || item['Cashbox'],
+          date: item['Sana'] || item['Date']
+        }))
+      });
+      
+      const { count, errors } = res.data;
+      if (count > 0) {
+        toastSonner.success(`${count} ta xarajat muvaffaqiyatli import qilindi`);
+        fetchData();
+      }
+      
+      if (errors?.length > 0) {
+        errors.forEach((err: string) => toastSonner.error(err));
+      }
+    } catch (err: any) {
+      toastSonner.error(err.response?.data?.message || "Importda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ACTIONS
   const handleSaveExpense = async (typeOverride?: 'VARIABLE' | 'FIXED') => {
@@ -214,7 +269,15 @@ export default function FinanceExpensesPage() {
   return (
     <div className="flex flex-col gap-6 w-full selection:bg-pink-100 selection:text-pink-900 animate-in fade-in duration-500">
       
-      {/* 🚀 Dynamic Tabs */}
+      <ImportExcelModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportExpenses}
+        title="Xarajatlarni Import Qilish"
+        description="Excel fayl orqali xarajatlarni ommaviy ravishda tizimga yuklang."
+        templateHeaders={['Summa', 'Izoh', 'Kategoriya', "To'lov Usuli", 'Kassa', 'Sana']}
+        exampleData={['500000', 'Ijara to\'lovi', 'Ijara', 'CASH', 'Asosiy Kassa', '2024-04-23']}
+      />
       <div className="flex border-b border-gray-100 mb-2 overflow-x-auto no-scrollbar whitespace-nowrap">
          {[
            {id: 'variable', name: "O'zgaruvchi xarajatlar", icon: ArrowRightLeft},
@@ -352,10 +415,18 @@ export default function FinanceExpensesPage() {
                     <Plus size={14} strokeWidth={3} />
                 </Button>
             ) : (
-                <Button onClick={() => { resetExpenseForm(); setIsVariableModalOpen(true); }} className="h-10 px-6 rounded-[8px] bg-[#EC4899] hover:bg-pink-600 text-white font-bold text-[12px] flex items-center gap-2 shadow-lg shadow-pink-100 border-none transition-all active:scale-95">
-                    Xarajat yozish
-                    <Plus size={14} strokeWidth={3} />
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsImportModalOpen(true)} className="h-10 px-6 rounded-[8px] border-gray-100 font-bold text-[12px] text-gray-600 hover:bg-gray-50 transition-all">
+                        Excel Import
+                    </Button>
+                    <Button variant="outline" onClick={handleExport} className="h-10 px-6 rounded-[8px] border-gray-100 font-bold text-[12px] text-gray-600 hover:bg-gray-50 transition-all">
+                        Eksport
+                    </Button>
+                    <Button onClick={() => { resetExpenseForm(); setIsVariableModalOpen(true); }} className="h-10 px-6 rounded-[8px] bg-[#EC4899] hover:bg-pink-600 text-white font-bold text-[12px] flex items-center gap-2 shadow-lg shadow-pink-100 border-none transition-all active:scale-95">
+                        Xarajat yozish
+                        <Plus size={14} strokeWidth={3} />
+                    </Button>
+                </div>
             )}
          </div>
       </div>

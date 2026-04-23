@@ -92,4 +92,14 @@ export class InventoryController {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  @Post('products/bulk')
+  @SetPermissions('inventory.products.create')
+  async bulkCreateProducts(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.inventoryService.bulkCreateProducts(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

@@ -798,12 +798,6 @@ export class FinanceService {
           amount: data.amount,
           category: data.category || '-',
           category_id: data.category_id || null,
-          description: data.description,
-          type: data.type || 'VARIABLE',
-          payment_method: data.payment_method || 'CASH',
-          source_type: data.source_type || 'KASSA',
-          responsible_id: data.responsible_id || null,
-          staff_id: data.staff_id || null,
           department_id: data.department_id || null,
           date: data.date ? new Date(data.date) : new Date(),
         },
@@ -821,6 +815,58 @@ export class FinanceService {
       }
 
       return expense;
+    });
+  }
+
+  async bulkCreateExpenses(tenantId: string, data: { branchId: string, userId: string, expenses: any[] }) {
+    const { branchId, userId, expenses } = data;
+
+    return await this.prisma.$transaction(async (prisma) => {
+      const errors = [];
+      let successCount = 0;
+
+      const categories = await prisma.expenseCategory.findMany({
+        where: { tenant_id: tenantId }
+      });
+
+      for (const e of expenses) {
+        try {
+          let categoryId = null;
+          if (e.category) {
+            let cat = categories.find(c => c.name.toLowerCase() === e.category.toLowerCase());
+            if (!cat) {
+              cat = await prisma.expenseCategory.create({
+                data: { tenant_id: tenantId, name: e.category }
+              });
+              categories.push(cat);
+            }
+            categoryId = cat.id;
+          }
+
+          await prisma.expense.create({
+            data: {
+              tenant_id: tenantId,
+              branch_id: branchId === 'all' ? null : branchId,
+              created_by: userId,
+              amount: Number(e.amount) || 0,
+              category: e.category || '-',
+              category_id: categoryId,
+              description: e.description || '',
+              payment_method: e.payType || 'CASH',
+              date: e.date ? new Date(e.date) : new Date()
+            }
+          });
+          successCount++;
+        } catch (err: any) {
+          errors.push(`Xatolik (${e.description || e.amount}): ${err.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        count: successCount,
+        errors
+      };
     });
   }
 
@@ -1986,7 +2032,17 @@ export class FinanceService {
       }
     });
 
-    const invoicedRevenue = invoices.reduce((acc, inv) => acc + Number(inv.amount), 0);
+    const invoicedRevenue = invoices
+      .filter(inv => {
+        // 1 haftalik imtiyozli davr: Agar o'quvchi 7 kundan kam qolgan bo'lsa, o'qituvchiga hisoblanmaydi
+        if (inv.start_date && inv.end_date) {
+          const diff = new Date(inv.end_date).getTime() - new Date(inv.start_date).getTime();
+          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          if (days < 7) return false;
+        }
+        return true;
+      })
+      .reduce((acc, inv) => acc + Number(inv.amount), 0);
     
     const activeEnrollments = group.enrollments;
     const vipStudents = activeEnrollments.filter(e => e.student.is_vip);

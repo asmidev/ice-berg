@@ -20,6 +20,7 @@ import { useBranch } from '@/providers/BranchProvider';
 import { toast } from 'sonner';
 import { AttendanceMarkingModal } from '../../components/AttendanceMarkingModal';
 import { DiscountAssignModal } from '../../components/DiscountAssignModal';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
 
 // Helper for formatting currency
 const formatCurrency = (amount: number) => {
@@ -54,6 +55,7 @@ export default function GroupDetailsPage() {
   const [selectedStudentsForDiscount, setSelectedStudentsForDiscount] = useState<string[]>([]);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [discountModalTargetIds, setDiscountModalTargetIds] = useState<string[]>([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const months = [
     { value: 1, label: 'Yan' }, { value: 2, label: 'Fev' }, { value: 3, label: 'Mar' },
     { value: 4, label: 'Apr' }, { value: 5, label: 'May' }, { value: 6, label: 'Iyun' },
@@ -105,6 +107,37 @@ export default function GroupDetailsPage() {
       fetchAttendance();
     }
   }, [groupId, group?.start_date]);
+
+  const handleImportGrades = async (data: any[]) => {
+    try {
+      setLoading(true);
+      const res = await api.post(`/lms/exams/bulk-grades`, { 
+        groupId: groupId,
+        branchId: branchId || 'all',
+        grades: data.map(item => ({
+          studentPhone: item['Telefon'] || item['Phone'],
+          studentName: item['Ism'] || item['Student'],
+          score: item['Ball'] || item['Score'],
+          examName: item['Imtihon'] || item['Exam'] || 'Monthly Exam',
+          date: item['Sana'] || item['Date'] || new Date().toISOString().split('T')[0]
+        }))
+      });
+      
+      const { count, errors } = res.data;
+      if (count > 0) {
+        toast.success(`${count} ta baho muvaffaqiyatli import qilindi`);
+        fetchAttendance();
+      }
+      
+      if (errors?.length > 0) {
+        errors.forEach((err: string) => toast.error(err));
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Importda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Generate all lesson days from start to end of group
   const lessonDays = useMemo(() => {
@@ -500,6 +533,9 @@ export default function GroupDetailsPage() {
                     <div className="flex items-center justify-between mb-8">
                        <h3 className="text-xl font-black text-gray-800 tracking-tight">O'quvchilar Baholari & Reytingi</h3>
                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setIsImportModalOpen(true)} className="rounded-xl border-gray-200 font-bold text-gray-600">
+                             Excel Import
+                          </Button>
                           <Button size="sm" variant="outline" className="rounded-xl border-gray-200 font-bold text-gray-600">Eksport</Button>
                        </div>
                     </div>
@@ -694,6 +730,15 @@ export default function GroupDetailsPage() {
                  onSuccess={() => {
                    fetchGroupData();
                  }}
+              />
+              <ImportExcelModal 
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={handleImportGrades}
+                title="Baholarni Import Qilish"
+                description="Excel fayl orqali o'quvchilar baholarini ommaviy ravishda yuklang."
+                templateHeaders={['Telefon', 'Ism', 'Ball', 'Imtihon', 'Sana']}
+                exampleData={['+998901234567', 'Ali Valiyev', '95', 'Chorak imtihoni', '2024-04-23']}
               />
            </Tabs>
         </main>

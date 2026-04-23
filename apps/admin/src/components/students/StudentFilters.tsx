@@ -15,14 +15,20 @@ interface StudentFiltersProps {
   onClear: () => void;
   onAdd: () => void;
   onExport: () => void;
+  onImport: () => void;
   groups: any[];
   courses: any[];
   totalCount: number;
+  startDate: string;
+  setStartDate: (v: string) => void;
+  endDate: string;
+  setEndDate: (v: string) => void;
 }
 
 export const StudentFilters: React.FC<StudentFiltersProps> = ({
   search, setSearch, status, setStatus, groupId, setGroupId, courseId, setCourseId,
-  onClear, onAdd, onExport, groups, courses, totalCount
+  onClear, onAdd, onExport, onImport, groups, courses, totalCount,
+  startDate, setStartDate, endDate, setEndDate
 }) => {
   return (
     <div className="flex flex-col gap-4 mt-6">
@@ -35,6 +41,12 @@ export const StudentFilters: React.FC<StudentFiltersProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <button 
+            onClick={onImport}
+            className="flex items-center gap-2 h-10 px-4 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[13px] font-bold rounded-lg hover:bg-emerald-100 transition-colors shadow-sm"
+          >
+            <List className="w-4 h-4" /> Import Excel
+          </button>
           <button 
             onClick={onExport}
             className="flex items-center gap-2 h-10 px-4 bg-white border border-zinc-200 text-zinc-600 text-[13px] font-bold rounded-lg hover:bg-zinc-50 transition-colors shadow-sm"
@@ -93,6 +105,22 @@ export const StudentFilters: React.FC<StudentFiltersProps> = ({
           <option value="DEBTOR">Qarzdorlar</option>
           <option value="FROZEN">Muzlatilgan</option>
         </select>
+
+        <div className="flex items-center gap-2">
+           <input 
+             type="date" 
+             value={startDate}
+             onChange={(e) => setStartDate(e.target.value)}
+             className="h-10 px-3 bg-white border border-zinc-200 rounded-lg text-[12px] font-medium text-zinc-700 outline-none focus:border-pink-500"
+           />
+           <span className="text-[10px] font-black text-zinc-300 uppercase">Gacha</span>
+           <input 
+             type="date" 
+             value={endDate}
+             onChange={(e) => setEndDate(e.target.value)}
+             className="h-10 px-3 bg-white border border-zinc-200 rounded-lg text-[12px] font-medium text-zinc-700 outline-none focus:border-pink-500"
+           />
+        </div>
 
         <button 
           onClick={onClear}

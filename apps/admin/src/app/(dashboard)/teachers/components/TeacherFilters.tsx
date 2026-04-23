@@ -7,9 +7,18 @@ interface TeacherFiltersProps {
   search: string;
   setSearch: (v: string) => void;
   onAdd: () => void;
+  onImport?: () => void;
+  onExport?: () => void;
+  startDate?: string;
+  setStartDate?: (v: string) => void;
+  endDate?: string;
+  setEndDate?: (v: string) => void;
 }
 
-export const TeacherFilters = ({ search, setSearch, onAdd }: TeacherFiltersProps) => {
+export const TeacherFilters = ({ 
+  search, setSearch, onAdd, onImport, onExport,
+  startDate, setStartDate, endDate, setEndDate
+}: TeacherFiltersProps) => {
   return (
     <div className="flex flex-col gap-6 mb-8">
       {/* Top Title & Breadcrumb */}
@@ -33,6 +42,43 @@ export const TeacherFilters = ({ search, setSearch, onAdd }: TeacherFiltersProps
                  className="h-10 w-[300px] pl-11 pr-4 bg-white border border-zinc-100 rounded-xl text-xs font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all shadow-sm"
                />
             </div>
+
+            {/* Date Filters */}
+            <div className="flex items-center gap-2">
+               <input 
+                 type="date" 
+                 value={startDate}
+                 onChange={(e) => setStartDate?.(e.target.value)}
+                 className="h-10 px-3 bg-white border border-zinc-100 rounded-xl text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all shadow-sm"
+               />
+               <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Gacha</span>
+               <input 
+                 type="date" 
+                 value={endDate}
+                 onChange={(e) => setEndDate?.(e.target.value)}
+                 className="h-10 px-3 bg-white border border-zinc-100 rounded-xl text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all shadow-sm"
+               />
+            </div>
+
+            {/* Import Button */}
+            {onImport && (
+               <button 
+                 onClick={onImport}
+                 className="h-10 px-6 bg-white text-zinc-600 border border-zinc-100 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all shadow-sm active:scale-95"
+               >
+                  Excel Import
+               </button>
+            )}
+
+            {/* Export Button */}
+            {onExport && (
+               <button 
+                 onClick={onExport}
+                 className="h-10 px-6 bg-white text-zinc-600 border border-zinc-100 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all shadow-sm active:scale-95"
+               >
+                  Eksport
+               </button>
+            )}
 
             {/* Add Button */}
             <button 

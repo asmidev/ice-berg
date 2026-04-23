@@ -13,6 +13,7 @@ import { RecentStudents } from '@/components/students/RecentStudents';
 import { StudentFilters } from '@/components/students/StudentFilters';
 import { StudentTable } from '@/components/students/StudentTable';
 import { StudentModals } from '@/components/students/StudentModals';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
 
 const API_PATH = '/students';
 
@@ -32,6 +33,8 @@ export default function StudentsDatabasePage() {
   const [status, setStatus] = useState('all');
   const [groupId, setGroupId] = useState('');
   const [courseId, setCourseId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [limit, setLimit] = useState(20);
   
   // Analytics Data
@@ -43,6 +46,7 @@ export default function StudentsDatabasePage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   
   // Form Targets
   const [newStudent, setNewStudent] = useState({ firstName: '', lastName: '', phone: '+998', password: '', parentPhone: '+998', branchId: '', dateOfBirth: '', gender: '' });
@@ -86,6 +90,8 @@ export default function StudentsDatabasePage() {
       if (status !== 'all') path += `&status=${status}`;
       if (groupId) path += `&group_id=${groupId}`;
       if (courseId) path += `&course_id=${courseId}`;
+      if (startDate) path += `&startDate=${startDate}`;
+      if (endDate) path += `&endDate=${endDate}`;
 
       const res = await api.get(path);
       const data = res.data?.data || res.data;
@@ -137,7 +143,7 @@ export default function StudentsDatabasePage() {
   useEffect(() => {
     const timeout = setTimeout(fetchStudents, 500);
     return () => clearTimeout(timeout);
-  }, [branchId, search, status, page, groupId, courseId]);
+  }, [search, status, groupId, courseId, branchId, page, limit, startDate, endDate]);
 
   // 📝 Handlers
   const handleAddStudent = async (e: React.FormEvent) => {
@@ -224,6 +230,16 @@ export default function StudentsDatabasePage() {
       showToast('Xatolik', 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleImport = async (data: any[]) => {
+    try {
+      await api.post(`${API_PATH}/bulk`, { students: data });
+      fetchStudents();
+      fetchAnalytics();
+    } catch (err) {
+      throw err;
     }
   };
 
@@ -318,13 +334,22 @@ export default function StudentsDatabasePage() {
       {/* 3. Filter & Table Section */}
       <div className="flex flex-col space-y-4">
         <StudentFilters 
-          search={search} setSearch={setSearch}
-          status={status} setStatus={setStatus}
-          groupId={groupId} setGroupId={setGroupId}
-          courseId={courseId} setCourseId={setCourseId}
+          search={search}
+          setSearch={setSearch}
+          status={status}
+          setStatus={setStatus}
+          groupId={groupId}
+          setGroupId={setGroupId}
+          courseId={courseId}
+          setCourseId={setCourseId}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
           onClear={clearFilters}
           onAdd={() => setIsAddModalOpen(true)}
           onExport={handleExport}
+          onImport={() => setIsImportModalOpen(true)}
           groups={groups}
           courses={courses}
           totalCount={totalStudents}
@@ -366,6 +391,16 @@ export default function StudentsDatabasePage() {
         onSubmitPassword={handlePasswordUpdate}
         onAddArchiveReason={handleAddArchiveReason}
         isSubmitting={isSubmitting}
+      />
+
+      <ImportExcelModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImport}
+        title="O'quvchilarni import qilish"
+        description="Excel fayl orqali o'quvchilarni ommaviy ravishda bazaga qo'shing."
+        templateHeaders={['Ism', 'Familiya', 'Telefon', 'Parol', 'Jinsi', 'Tug\'ilgan sana']}
+        exampleData={['Ali', 'Valiyev', '+998901234567', '123456', 'Erkak', '2005-05-15']}
       />
     </div>
   );

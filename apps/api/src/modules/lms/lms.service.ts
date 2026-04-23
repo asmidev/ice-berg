@@ -916,7 +916,10 @@ export class LmsService {
            const diff = Number(currentInvoice.amount) - calc.amountToPay;
            await prisma.invoice.update({
              where: { id: currentInvoice.id },
-             data: { amount: calc.amountToPay }
+             data: { 
+               amount: calc.amountToPay,
+               end_date: lDate
+             }
            });
            // Student balansini qaytaramiz (chunki invoice yaratilganda balans ayrilgan edi)
            await prisma.student.update({
@@ -1050,5 +1053,70 @@ export class LmsService {
       recent,
       older: totalArchive - recent
     };
+  }
+
+  async bulkCreateExamGrades(tenantId: string, data: { groupId: string, examTitle: string, date: string, maxScore: number, results: any[] }) {
+    const { groupId, examTitle, date, maxScore, results } = data;
+
+    return await this.prisma.$transaction(async (prisma) => {
+      // 1. Create the Exam record
+      const exam = await prisma.exam.create({
+        data: {
+          group_id: groupId,
+          title: examTitle,
+          date: new Date(date),
+          max_score: Number(maxScore) || 100
+        }
+      });
+
+      const errors = [];
+      let successCount = 0;
+
+      // 2. Process each result
+      for (const res of results) {
+        try {
+          // Find student in this group
+          const enrollment = await prisma.enrollment.findFirst({
+            where: {
+              group_id: groupId,
+              student: {
+                user: {
+                  OR: [
+                    { first_name: { contains: res.firstName, mode: 'insensitive' }, last_name: { contains: res.lastName, mode: 'insensitive' } },
+                    { phone: { contains: res.phone?.toString() || 'NOMATCH' } },
+                    { id: res.studentId || 'NOMATCH' }
+                  ]
+                }
+              }
+            },
+            select: { student_id: true }
+          });
+
+          if (!enrollment) {
+            errors.push(`Talaba topilmadi: ${res.firstName} ${res.lastName}`);
+            continue;
+          }
+
+          await prisma.grade.create({
+            data: {
+              exam_id: exam.id,
+              student_id: enrollment.student_id,
+              score: Number(res.score) || 0,
+              feedback: res.feedback || null
+            }
+          });
+          successCount++;
+        } catch (e: any) {
+          errors.push(`Xatolik (${res.firstName}): ${e.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        examId: exam.id,
+        count: successCount,
+        errors
+      };
+    });
   }
 }

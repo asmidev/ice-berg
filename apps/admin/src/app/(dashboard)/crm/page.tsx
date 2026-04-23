@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { AnimatePresence, motion } from 'framer-motion';
+import * as XLSX from 'xlsx';
 
 import api from '@/lib/api';
 import { useSearchParams } from 'next/navigation';
@@ -26,6 +27,7 @@ import {
 import { CrmStatCards } from '@/components/crm/CrmStatCards';
 import { LeadCard } from '@/components/crm/LeadCard';
 import { LeadsTable } from '@/components/crm/LeadsTable';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
 
 export default function CrmBoardPage() {
   const searchParams = useSearchParams();
@@ -40,6 +42,8 @@ export default function CrmBoardPage() {
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState('7d');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   const [stats, setStats] = useState({
     totalLeads: 0,
@@ -50,6 +54,7 @@ export default function CrmBoardPage() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [archiveModal, setArchiveModal] = useState({ isOpen: false, leadId: '', reason: '', newCustomReason: '' });
   const [newLeadData, setNewLeadData] = useState({ name: '', phone: '+998', sourceId: '', stageId: '', newCustomSource: '', courseId: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,8 +78,13 @@ export default function CrmBoardPage() {
       else if (period === '90d') start.setDate(end.getDate() - 90);
       else if (period === 'year') start.setFullYear(end.getFullYear() - 1);
       
-      const startStr = start.toISOString().split('T')[0];
-      const endStr = end.toISOString().split('T')[0];
+      let startStr = start.toISOString().split('T')[0];
+      let endStr = end.toISOString().split('T')[0];
+
+      if (period === 'custom' && startDate && endDate) {
+        startStr = startDate;
+        endStr = endDate;
+      }
 
       const [leadsRes, stagesRes, sourcesRes, reasonsRes, statsRes, coursesRes] = await Promise.all([
         api.get(`/crm/leads?branch_id=${branchId}&search=${search}&startDate=${startStr}&endDate=${endStr}&limit=100`),
@@ -137,9 +147,8 @@ export default function CrmBoardPage() {
   };
 
   useEffect(() => {
-    const timeout = setTimeout(fetchData, 400);
-    return () => clearTimeout(timeout);
-  }, [branchId, search, period]);
+    fetchData();
+  }, [branchId, search, period, startDate, endDate]);
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -208,6 +217,35 @@ export default function CrmBoardPage() {
     }
   };
 
+  const handleImportLeads = async (data: any[]) => {
+    try {
+      await api.post('/crm/leads/bulk', { leads: data });
+      fetchData();
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleExport = () => {
+    if (leads.length === 0) return showToast('Eksport qilish uchun ma\'lumot yo\'q', 'error');
+    
+    const exportData = leads.map(l => ({
+      'Ism': l.name,
+      'Telefon': l.phone,
+      'Bosqich': l.stage?.name || 'Yo\'q',
+      'Manba': l.source?.name || 'Yo\'q',
+      'Kurs': l.course?.name || 'Yo\'q',
+      'Yaratilgan sana': new Date(l.created_at).toLocaleDateString(),
+      'Oxirgi izoh': l.last_comment || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Lidlar");
+    XLSX.writeFile(wb, `Lidlar_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast('Excel fayl yuklandi!');
+  };
+
   const getStageColor = (stage: any) => {
     if (stage.name.toLowerCase().includes('aylangan')) return 'emerald';
     const colors = ['blue', 'amber', 'indigo', 'emerald', 'purple', 'rose'];
@@ -243,8 +281,27 @@ export default function CrmBoardPage() {
               <SelectItem value="30d" className="font-bold">1 oylik</SelectItem>
               <SelectItem value="90d" className="font-bold">3 oylik</SelectItem>
               <SelectItem value="year" className="font-bold">1 yillik</SelectItem>
+              <SelectItem value="custom" className="font-bold text-pink-600">Ixtiyoriy davr...</SelectItem>
             </SelectContent>
           </Select>
+
+          {period === 'custom' && (
+             <div className="flex items-center gap-2 animate-in slide-in-from-left-2 duration-300">
+               <input 
+                 type="date" 
+                 value={startDate}
+                 onChange={(e) => setStartDate(e.target.value)}
+                 className="h-11 px-3 bg-gray-50 border-none rounded-xl text-[11px] font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500/20 transition-all"
+               />
+               <span className="text-[10px] font-black text-gray-300 uppercase">Gacha</span>
+               <input 
+                 type="date" 
+                 value={endDate}
+                 onChange={(e) => setEndDate(e.target.value)}
+                 className="h-11 px-3 bg-gray-50 border-none rounded-xl text-[11px] font-bold text-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500/20 transition-all"
+               />
+             </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -263,6 +320,22 @@ export default function CrmBoardPage() {
               <List size={14} /> JADVAL
             </button>
           </div>
+
+          <Button 
+            variant="outline"
+            onClick={() => setIsImportModalOpen(true)}
+            className="h-11 bg-emerald-50 border-emerald-100 text-emerald-600 font-black rounded-xl px-4 hover:bg-emerald-100"
+          >
+            <List className="w-4.5 h-4.5 mr-2" /> IMPORT
+          </Button>
+
+          <Button 
+            variant="outline"
+            onClick={handleExport}
+            className="h-11 bg-blue-50 border-blue-100 text-blue-600 font-black rounded-xl px-4 hover:bg-blue-100"
+          >
+            EKSPORT
+          </Button>
 
           <Button 
             onClick={() => { setNewLeadData({ name: '', phone: '+998', sourceId: sources[0]?.id || '', stageId: stages[0]?.id || '', newCustomSource: '', courseId: '' }); setIsModalOpen(true); }}
@@ -499,6 +572,15 @@ export default function CrmBoardPage() {
         )}
       </AnimatePresence>
 
+      <ImportExcelModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportLeads}
+        title="Lidlarni import qilish"
+        description="Excel fayl orqali yangi lidlarni ommaviy ravishda CRM bazasiga qo'shing."
+        templateHeaders={['Ism', 'Telefon', 'Izoh']}
+        exampleData={['Lola Karimova', '+998950001122', 'Ingliz tili kursiga qiziqmoqda']}
+      />
     </div>
   );
 }

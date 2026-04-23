@@ -108,6 +108,18 @@ export class StudentsController {
     }
   }
 
+  @Post('bulk')
+  @SetPermissions('students.create')
+  async bulkCreate(@Req() req: any, @Body() body: { students: any[] }) {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) throw new Error('Unauthorized');
+      return await this.studentsService.bulkCreateStudents(tenantId, body.students);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Get('archive/reasons')
   @SetPermissions('students.view', 'students.archive')
   async getArchiveReasons(@Req() req: any) {

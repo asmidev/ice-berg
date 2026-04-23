@@ -18,15 +18,22 @@ import { toast as toastSonner } from 'sonner';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
+import { useBranch } from '@/providers/BranchProvider';
+import * as XLSX from 'xlsx';
 
 export default function OfficeStaffSettingsPage() {
   const confirm = useConfirm();
+  const { branchId } = useBranch();
   const [staff, setStaff] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ show: true, message, type });
@@ -48,13 +55,13 @@ export default function OfficeStaffSettingsPage() {
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [startDate, endDate]);
 
   const fetchInitialData = async () => {
     try {
       setLoading(true);
       const [staffRes, rolesRes, branchesRes] = await Promise.all([
-        api.get('/staff'),
+        api.get(`/staff?startDate=${startDate}&endDate=${endDate}`),
         api.get('/roles'),
         api.get('/branches')
       ]);
@@ -66,6 +73,54 @@ export default function OfficeStaffSettingsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImportStaff = async (data: any[]) => {
+    try {
+      setLoading(true);
+      const res = await api.post('/staff/bulk', { 
+        branchId: branchId || 'all',
+        staff: data.map(item => ({
+          first_name: item['Ism'] || item['First Name'],
+          last_name: item['Familiya'] || item['Last Name'],
+          phone: item['Telefon'] || item['Phone'],
+          role: item['Rol'] || item['Role'],
+          password: item['Parol'] || item['Password']
+        }))
+      });
+      
+      const { count, errors } = res.data;
+      if (count > 0) {
+        toastSonner.success(`${count} ta xodim muvaffaqiyatli import qilindi`);
+        fetchInitialData();
+      }
+      
+      if (errors?.length > 0) {
+        errors.forEach((err: string) => toastSonner.error(err));
+      }
+    } catch (err: any) {
+      toastSonner.error(err.response?.data?.message || "Importda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    if (staff.length === 0) return showToast('Eksport qilish uchun ma\'lumot yo\'q', 'error');
+    
+    const exportData = staff.map(s => ({
+      'F.I.SH': `${s.first_name} ${s.last_name}`,
+      'Telefon': s.phone,
+      'Lavozim': s.role?.name || 'Yo\'q',
+      'Filiallar': s.branches?.map((b: any) => b.name).join(', ') || 'Barcha',
+      'Status': s.is_active ? 'Faol' : 'Nofaol'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Xodimlar");
+    XLSX.writeFile(wb, `Xodimlar_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast('Excel fayl yuklandi!');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,6 +198,16 @@ export default function OfficeStaffSettingsPage() {
   return (
     <div className="flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12 w-full mx-auto">
       
+      <ImportExcelModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportStaff}
+        title="Xodimlarni Import Qilish"
+        description="Excel fayl orqali xodimlarni ommaviy ravishda tizimga yuklang."
+        templateHeaders={['BranchID', 'Ism', 'Familiya', 'Telefon', 'Rol', 'Parol']}
+        exampleData={['b1', 'Zuhra', 'Karimova', '+998934445566', 'Menejer', 'staff789']}
+      />
+
       {/* 🚀 Toast */}
       {toast.show && (
         <div className={`fixed bottom-8 right-8 z-[1000] p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 
@@ -165,6 +230,20 @@ export default function OfficeStaffSettingsPage() {
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto mt-2 md:mt-0 relative z-10">
            <Button 
+             variant="outline"
+             onClick={() => setIsImportModalOpen(true)}
+             className="h-11 px-6 border-zinc-100 font-bold rounded-xl shadow-sm bg-white hover:bg-zinc-50 transition-all w-full sm:w-auto text-zinc-600"
+           >
+             Excel Import
+           </Button>
+           <Button 
+             variant="outline"
+             onClick={handleExport}
+             className="h-11 px-6 border-zinc-100 font-bold rounded-xl shadow-sm bg-white hover:bg-zinc-50 transition-all w-full sm:w-auto text-zinc-600"
+           >
+             Eksport
+           </Button>
+           <Button 
              onClick={() => { resetForm(); setIsModalOpen(true); }}
              className="h-11 px-6 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-xl shadow-lg shadow-pink-200 active:scale-95 transition-all w-full sm:w-auto border-none"
            >
@@ -186,6 +265,22 @@ export default function OfficeStaffSettingsPage() {
                 className="w-full h-11 pl-10 pr-4 bg-white border border-zinc-100 rounded-xl text-sm font-bold focus:border-pink-200 focus:ring-4 focus:ring-pink-50/50 outline-none transition-all shadow-sm" 
               />
            </div>
+           
+           <div className="flex items-center gap-2">
+               <input 
+                 type="date" 
+                 value={startDate}
+                 onChange={(e) => setStartDate(e.target.value)}
+                 className="h-11 px-3 bg-white border border-zinc-100 rounded-xl text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition-all shadow-sm"
+               />
+               <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Gacha</span>
+               <input 
+                 type="date" 
+                 value={endDate}
+                 onChange={(e) => setEndDate(e.target.value)}
+                 className="h-11 px-3 bg-white border border-zinc-100 rounded-xl text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition-all shadow-sm"
+               />
+            </div>
            
            <div className="flex gap-2 w-full sm:w-auto">
              <Button variant="outline" className="h-11 px-4 text-zinc-600 border-zinc-100 font-bold shadow-sm bg-white hover:bg-zinc-50 rounded-xl">

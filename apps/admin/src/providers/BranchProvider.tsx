@@ -31,6 +31,8 @@ export function BranchProvider({ children }: { children: ReactNode }) {
 
   // Update function that handles everything
   const setBranchId = (id: string) => {
+    if (id === branchId && searchParams.get('branch_id') === id) return;
+    
     setBranchState(id);
     localStorage.setItem('branch_id', id);
     

@@ -13,6 +13,9 @@ import { TeacherModals } from './components/TeacherModals';
 import { AcademicPerformanceChart } from './components/AcademicPerformanceChart';
 import { AttendanceTrendChart } from './components/AttendanceTrendChart';
 import { DepartmentStats } from './components/DepartmentStats';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
+import * as XLSX from 'xlsx';
+import { Printer } from 'lucide-react';
 
 export default function TeachersDatabasePage() {
   const confirm = useConfirm();
@@ -31,8 +34,11 @@ export default function TeachersDatabasePage() {
   
   // Filters
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTeacherId, setEditTeacherId] = useState('');
@@ -69,7 +75,7 @@ export default function TeachersDatabasePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      let path = `/teachers?branch_id=${branchId === 'all' ? '' : branchId}&search=${search}`;
+      let path = `/teachers?branch_id=${branchId === 'all' ? '' : branchId}&search=${search}&startDate=${startDate}&endDate=${endDate}`;
       
       const [teachersRes, branchesRes, groupsRes, statsRes] = await Promise.all([
         api.get(path),
@@ -95,9 +101,29 @@ export default function TeachersDatabasePage() {
   }, []);
 
   useEffect(() => {
-     const timeout = setTimeout(fetchData, 500);
-     return () => clearTimeout(timeout);
-  }, [fetchData]);
+    const timeout = setTimeout(fetchData, 500);
+    return () => clearTimeout(timeout);
+  }, [fetchData, startDate, endDate]);
+
+  const handleExport = () => {
+    if (teachers.length === 0) return showToast('Eksport qilish uchun ma\'lumot yo\'q', 'error');
+    
+    const exportData = teachers.map(t => ({
+      'F.I.SH': `${t.user?.first_name} ${t.user?.last_name}`,
+      'Telefon': t.user?.phone,
+      'Mutaxassislik': t.specialization || 'Yo\'q',
+      'Oylik turi': t.salary_type === 'FIXED' ? 'O\'zgarmas' : 'KPI',
+      'Oylik summasi': Number(t.salary_amount).toLocaleString() + ' UZS',
+      'Guruhlar soni': t.groups?.length || 0,
+      'Status': t.is_active ? 'Faol' : 'Nofaol'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "O'qituvchilar");
+    XLSX.writeFile(wb, `Oqituvchilar_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showToast('Excel fayl yuklandi!');
+  };
 
   const fetchArchiveReasons = async () => {
     try {
@@ -118,6 +144,38 @@ export default function TeachersDatabasePage() {
       await api.post('/teachers/specializations', { name });
       fetchSpecializations();
     } catch (err) { showToast("Yo'nalish qo'shishda xatolik", 'error'); }
+  };
+
+  const handleImportTeachers = async (data: any[]) => {
+    try {
+      setLoading(true);
+      const res = await api.post('/teachers/bulk', { 
+        branchId: branchId || 'all',
+        teachers: data.map(item => ({
+          firstName: item['Ism'] || item['First Name'],
+          lastName: item['Familiya'] || item['Last Name'],
+          phone: item['Telefon'] || item['Phone'],
+          specialization: item['Mutaxassislik'] || item['Specialization'],
+          salaryType: item['Maosh Turi'] || item['Salary Type'] || 'FIXED',
+          salaryAmount: item['Maosh Miqdori'] || item['Salary Amount'] || '0',
+          password: item['Parol'] || item['Password']
+        }))
+      });
+      
+      const { count, errors } = res.data;
+      if (count > 0) {
+        showToast(`${count} ta o'qituvchi muvaffaqiyatli import qilindi`);
+        fetchData();
+      }
+      
+      if (errors?.length > 0) {
+        errors.forEach((err: string) => showToast(err, 'error'));
+      }
+    } catch (err: any) {
+      showToast(err.response?.data?.message || "Importda xatolik", 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleArchiveTeacher = async () => {
@@ -165,6 +223,16 @@ export default function TeachersDatabasePage() {
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 w-full mx-auto p-0 pt-[15px] text-zinc-800">
       
+      <ImportExcelModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportTeachers}
+        title="O'qituvchilarni Import Qilish"
+        description="Excel fayl orqali o'qituvchilarni ommaviy ravishda tizimga yuklang."
+        templateHeaders={['BranchID', 'Ism', 'Familiya', 'Telefon', 'Mutaxassislik', 'Oylik turi', 'Oylik summasi', 'Parol']}
+        exampleData={['b1', 'Hasan', 'Olimov', '+998911112233', 'Matematika', 'FIXED', '5000000', 'teacher123']}
+      />
+
       {toast.show && (
         <div className="fixed bottom-6 right-6 z-[9999] p-4 rounded-md shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-10 duration-300 bg-[#1E3A5F] text-white">
            {toast.type === 'error' ? <AlertCircle className="w-5 h-5 text-rose-400" /> : <CheckCircle2 className="w-5 h-5 text-cyan-400" />}
@@ -193,7 +261,13 @@ export default function TeachersDatabasePage() {
       <TeacherFilters 
         search={search} 
         setSearch={setSearch} 
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
         onAdd={() => { resetForm(); setIsModalOpen(true); }}
+        onImport={() => setIsImportModalOpen(true)}
+        onExport={handleExport}
       />
 
       {/* 🧑‍🏫 Teacher Grid View */}

@@ -42,6 +42,54 @@ export class CrmService {
     }
   }
 
+  async bulkCreateLeads(tenantId: string, leadsData: any[]) {
+    try {
+      const defaultStage = await this.prisma.leadStage.findFirst({
+        where: { tenant_id: tenantId },
+        orderBy: { order: 'asc' }
+      });
+
+      const results = {
+        success: 0,
+        errors: [] as string[]
+      };
+
+      await this.prisma.$transaction(async (prisma) => {
+        for (const data of leadsData) {
+          try {
+            const name = data['Ism'] || data['name'] || 'Noma\'lum';
+            const phone = String(data['Telefon'] || data['phone'] || '').replace(/\s/g, '');
+            
+            if (!phone) {
+              results.errors.push(`Qatorda telefon raqami yo'q: ${name}`);
+              continue;
+            }
+
+            await prisma.lead.create({
+              data: {
+                tenant_id: tenantId,
+                branch_id: data.branchId || null,
+                name,
+                phone,
+                notes: data['Izoh'] || data['notes'] || '',
+                stage_id: defaultStage?.id,
+                status: 'ACTIVE',
+              },
+            });
+            results.success++;
+          } catch (e: any) {
+            results.errors.push(`Xatolik: ${e.message}`);
+          }
+        }
+      });
+
+      return results;
+    } catch (err: any) {
+      console.error("CRM BULK CREATE ERROR", err);
+      throw new HttpException(err.message || 'Ommaviy yaratishda xatolik', 500);
+    }
+  }
+
   async getStages(tenantId: string) {
     try {
       const stages = await this.prisma.leadStage.findMany({

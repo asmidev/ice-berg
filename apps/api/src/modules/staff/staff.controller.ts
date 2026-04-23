@@ -75,4 +75,14 @@ export class StaffController {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  @Post('bulk')
+  @SetPermissions('staff.create')
+  async bulkCreate(@Req() req: any, @Body() body: any) {
+    try {
+      return await this.staffService.bulkCreateStaff(req.user.tenantId, body);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

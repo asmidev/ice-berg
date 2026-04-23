@@ -27,6 +27,9 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { ImportExcelModal } from '@/components/shared/ImportExcelModal';
+import { toast as toastSonner } from 'sonner';
+import * as XLSX from 'xlsx';
 
 export default function FinanceIncomesPage() {
   const searchParams = useSearchParams();
@@ -35,6 +38,7 @@ export default function FinanceIncomesPage() {
   const [branchId, setBranchId] = useState('all');
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Data States
   const [sales, setSales] = useState<any[]>([]);
@@ -131,10 +135,72 @@ export default function FinanceIncomesPage() {
     }
   };
 
+  const handleExport = () => {
+    if (activeTab === 'sales') {
+      if (sales.length === 0) return showToast('Eksport qilish uchun ma\'lumot yo\'q', 'error');
+      const exportData = sales.map(s => ({
+        'Sana': new Date(s.created_at).toLocaleDateString(),
+        'Mijoz': s.student ? `${s.student.user?.first_name} ${s.student.user?.last_name}` : s.customer?.name || 'Noma\'lum',
+        'Maxsulotlar': s.items?.map((it: any) => `${it.product?.name} (${it.quantity})`).join(', '),
+        'Summa': Number(s.total_amount).toLocaleString() + ' UZS',
+        'To\'lov turi': s.payment_method
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Savdolar");
+      XLSX.writeFile(wb, `Savdolar_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } else if (activeTab === 'products') {
+      if (products.length === 0) return showToast('Eksport qilish uchun ma\'lumot yo\'q', 'error');
+      const exportData = products.map(p => ({
+        'Nomi': p.name,
+        'Kategoriya': p.category?.name || 'Yo\'q',
+        'Sotuv narxi': Number(p.price).toLocaleString() + ' UZS',
+        'Tan narxi': Number(p.cost_price).toLocaleString() + ' UZS',
+        'Sklad': p.stock,
+        'Filial': p.branch?.name || 'Barcha'
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Maxsulotlar");
+      XLSX.writeFile(wb, `Maxsulotlar_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+    showToast('Excel fayl yuklandi!');
+  };
+
   useEffect(() => {
     const timeout = setTimeout(fetchData, 400);
     return () => clearTimeout(timeout);
   }, [branchId, mounted, search, activeTab, categoryFilter, startDate, endDate]);
+
+  const handleImportProducts = async (data: any[]) => {
+    try {
+      setLoading(true);
+      const res = await api.post('/inventory/products/bulk', { 
+        branchId: branchId || 'all',
+        products: data.map(item => ({
+          name: item['Nomi'] || item['Name'],
+          category: item['Kategoriya'] || item['Category'],
+          price: item['Sotuv Narxi'] || item['Sale Price'] || item['Price'],
+          costPrice: item['Tan Narxi'] || item['Cost Price'],
+          stock: item['Sklad'] || item['Stock'] || '0'
+        }))
+      });
+      
+      const { count, errors } = res.data;
+      if (count > 0) {
+        toastSonner.success(`${count} ta mahsulot muvaffaqiyatli import qilindi`);
+        fetchData();
+      }
+      
+      if (errors?.length > 0) {
+        errors.forEach((err: string) => toastSonner.error(err));
+      }
+    } catch (err: any) {
+      toastSonner.error(err.response?.data?.message || "Importda xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // CATEGORY ACTIONS
   const handleSaveCategory = async () => {
@@ -255,6 +321,17 @@ export default function FinanceIncomesPage() {
 
   return (
     <div className="flex flex-col gap-2 w-full selection:bg-[#EC4899]/20 selection:text-[#be185d]">
+      
+      <ImportExcelModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportProducts}
+        title="Maxsulotlarni Import Qilish"
+        description="Excel fayl orqali mahsulotlarni ommaviy ravishda inventarga yuklang."
+        templateHeaders={['Nomi', 'Kategoriya', 'Sotuv Narxi', 'Tan Narxi', 'Sklad']}
+        exampleData={['Matematika Kitobi', 'O\'quv qurollari', '50000', '35000', '100']}
+      />
+
       {/* --- TOAST --- */}
       {toast.show && (
         <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
@@ -340,9 +417,22 @@ export default function FinanceIncomesPage() {
               </Button>
             )}
             {activeTab === 'products' && (
-              <Button onClick={() => { setProductForm({id:'', name:'', price:0, cost_price:0, stock:0, category_id:'', branch_id:'', photo_url:''}); setIsProductModalOpen(true); }} className="h-10 px-5 rounded-full bg-[#1E3A5F] hover:bg-[#0f2442] text-white font-bold text-[12px] flex items-center gap-2 shadow-lg shadow-blue-900/20 border-none transition-all active:scale-95">
-                Maxsulot qo'shish <Plus size={14} strokeWidth={3} />
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsImportModalOpen(true)} className="h-10 px-5 rounded-full border-zinc-100 font-bold text-[12px] text-zinc-600 hover:bg-zinc-50 transition-all">
+                  Excel Import
+                </Button>
+                <Button variant="outline" onClick={handleExport} className="h-10 px-5 rounded-full border-zinc-100 font-bold text-[12px] text-zinc-600 hover:bg-zinc-50 transition-all">
+                  Eksport
+                </Button>
+                <Button onClick={() => { setProductForm({id:'', name:'', price:0, cost_price:0, stock:0, category_id:'', branch_id:'', photo_url:''}); setIsProductModalOpen(true); }} className="h-10 px-5 rounded-full bg-[#1E3A5F] hover:bg-[#0f2442] text-white font-bold text-[12px] flex items-center gap-2 shadow-lg shadow-blue-900/20 border-none transition-all active:scale-95">
+                  Maxsulot qo'shish <Plus size={14} strokeWidth={3} />
+                </Button>
+              </div>
+            )}
+            {activeTab === 'sales' && (
+               <Button variant="outline" onClick={handleExport} className="h-10 px-5 rounded-full border-zinc-100 font-bold text-[12px] text-zinc-600 hover:bg-zinc-50 transition-all">
+                  Eksport
+               </Button>
             )}
             {activeTab === 'categories' && (
               <Button onClick={() => { setCategoryForm({id:'', name:''}); setIsCategoryModalOpen(true); }} className="h-10 px-5 rounded-full bg-[#1E3A5F] hover:bg-[#0f2442] text-white font-bold text-[12px] flex items-center gap-2 shadow-lg shadow-blue-900/20 border-none transition-all active:scale-95">
@@ -376,6 +466,22 @@ export default function FinanceIncomesPage() {
               </Select>
            </div>
          )}
+          
+          <div className="flex items-center gap-2 ml-2">
+             <input 
+               type="date" 
+               value={startDate}
+               onChange={(e) => setStartDate(e.target.value)}
+               className="h-10 px-3 bg-zinc-50/50 border-none rounded-xl text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+             />
+             <span className="text-[10px] font-black text-zinc-300 uppercase">Gacha</span>
+             <input 
+               type="date" 
+               value={endDate}
+               onChange={(e) => setEndDate(e.target.value)}
+               className="h-10 px-3 bg-zinc-50/50 border-none rounded-xl text-[11px] font-bold text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+             />
+          </div>
       </div>
 
       {/* --- SALES TAB CONTENT --- */}

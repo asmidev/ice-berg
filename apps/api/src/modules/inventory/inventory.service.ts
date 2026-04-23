@@ -97,4 +97,59 @@ export class InventoryService {
       where: { id, tenant_id: tenantId },
     });
   }
+
+  async bulkCreateProducts(tenantId: string, data: { branchId: string, products: any[] }) {
+    const { branchId, products } = data;
+
+    return await this.prisma.$transaction(async (prisma) => {
+      const errors = [];
+      let successCount = 0;
+
+      // Fetch existing categories to match by name
+      const categories = await prisma.productCategory.findMany({
+        where: { tenant_id: tenantId }
+      });
+
+      for (const p of products) {
+        try {
+          // 1. Find or Create Category
+          let categoryId = null;
+          if (p.category) {
+            let category = categories.find(c => c.name.toLowerCase() === p.category.toLowerCase());
+            if (!category) {
+              category = await prisma.productCategory.create({
+                data: { tenant_id: tenantId, name: p.category }
+              });
+              categories.push(category); // Add to local cache
+            }
+            categoryId = category.id;
+          }
+
+          // 2. Create Product
+          await prisma.product.create({
+            data: {
+              tenant_id: tenantId,
+              branch_id: branchId === 'all' ? null : branchId,
+              category_id: categoryId,
+              name: p.name,
+              stock: Number(p.stock) || 0,
+              price: Number(p.price) || 0,
+              cost_price: Number(p.costPrice) || 0,
+              is_for_sale: p.isForSale !== undefined ? p.isForSale : true,
+              is_top: p.isTop || false
+            }
+          });
+          successCount++;
+        } catch (e: any) {
+          errors.push(`Xatolik (${p.name}): ${e.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        count: successCount,
+        errors
+      };
+    });
+  }
 }

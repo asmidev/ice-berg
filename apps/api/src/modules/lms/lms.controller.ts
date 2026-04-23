@@ -26,6 +26,16 @@ export class LmsController {
     }
   }
 
+  @Post('exams/bulk')
+  @SetPermissions('groups.update')
+  async bulkCreateExamGrades(@Req() req: any, @Body() data: any) {
+    try {
+      return await this.lmsService.bulkCreateExamGrades(req.user.tenantId, data);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Post('courses')
   @SetPermissions('courses.create')
   async createCourse(@Req() req: any, @Body() data: any) {
