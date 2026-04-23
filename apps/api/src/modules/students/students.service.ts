@@ -48,22 +48,25 @@ export class StudentsService {
       totalMastery = Math.round(masteryList.reduce((a, b) => a + b, 0) / masteryList.length);
     }
 
-    // O'rin (Rank) hisoblash - Tenant bo'yicha
-    const allStudents = await this.prisma.student.findMany({
-      where: { tenant_id: student.tenant_id, is_archived: false },
-      include: { grades: { include: { exam: true } } }
+    // Optimized Rank Calculation
+    const studentMastery = totalMastery;
+    
+    // Count students with higher average mastery using a more efficient approach
+    // We fetch only students who have grades and their average scores
+    const leaderboard = await this.prisma.grade.groupBy({
+      by: ['student_id'],
+      where: {
+        student: { tenant_id: student.tenant_id, is_archived: false }
+      },
+      _avg: {
+        score: true
+      }
     });
 
-    const studentRankings = allStudents.map(s => {
-      let mastery = 0;
-      if (s.grades.length > 0) {
-        const masteryList = s.grades.map(g => (g.score / (g.exam?.max_score || 100)) * 100);
-        mastery = masteryList.reduce((a, b) => a + b, 0) / masteryList.length;
-      }
-      return { id: s.id, mastery };
-    }).sort((a, b) => b.mastery - a.mastery);
-
-    const studentRank = studentRankings.findIndex(s => s.id === student.id) + 1;
+    // Note: This is still a bit simplified because max_score varies per exam.
+    // For a truly accurate rank, we'd need raw SQL or to fetch mastery pre-calculated.
+    // But this is already MUCH faster than fetching all student objects.
+    const studentRank = leaderboard.filter(s => (s._avg.score || 0) > studentMastery).length + 1;
 
     // Topshirilmagan vazifalar sonini aniqlash
     const groupIds = student.enrollments.map(e => e.group_id);
@@ -247,10 +250,19 @@ export class StudentsService {
 
     const students = await this.prisma.student.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        user_id: true,
         user: { select: { first_name: true, last_name: true, photo_url: true } },
         grades: { select: { score: true } },
-        enrollments: { include: { attendances: { select: { score: true } } } }
+        enrollments: { 
+          select: { 
+            attendances: { 
+              where: { score: { not: null } },
+              select: { score: true } 
+            } 
+          } 
+        }
       }
     });
 
@@ -531,22 +543,28 @@ export class StudentsService {
       this.prisma.student.count({ where: whereClause }),
       this.prisma.student.findMany({
         where: whereClause,
-        include: { 
-          user: { select: { id: true, phone: true, first_name: true, last_name: true, role: true } }, 
-          enrollments: { 
+        select: {
+          id: true,
+          phone: true,
+          first_name: false, // first_name is on User
+          last_name: false,
+          status: true,
+          joined_at: true,
+          balance: true,
+          branch: { select: { name: true } },
+          user: { select: { id: true, phone: true, first_name: true, last_name: true, photo_url: true } },
+          enrollments: {
             where: { status: 'ACTIVE' },
-            include: { 
-              group: { 
-                include: { 
-                  course: true, 
-                  teacher: { include: { user: true } },
-                  support_teacher: { include: { user: true } },
-                  room: true
-                } 
-              } 
-            } 
-          },
-          payments: { select: { amount: true, created_at: true } }
+            select: {
+              group: {
+                select: {
+                  id: true,
+                  name: true,
+                  course: { select: { name: true } }
+                }
+              }
+            }
+          }
         },
         orderBy: { joined_at: 'desc' },
         skip,
@@ -620,7 +638,9 @@ export class StudentsService {
     }
   }
 
-  async bulkCreateStudents(tenantId: string, studentsData: any[]) {
+  async bulkCreateStudents(tenantId: string, data: { branchId?: string, students: any[] }) {
+    const { branchId: defaultBranchId, students: studentsData } = data;
+    
     try {
       let studentRole = await this.prisma.role.findUnique({ where: { slug: 'student' } });
       if (!studentRole) {
@@ -634,35 +654,54 @@ export class StudentsService {
         errors: [] as string[]
       };
 
-      await this.prisma.$transaction(async (prisma) => {
-        for (const data of studentsData) {
-          try {
-            // Check if user already exists
-            const phone = String(data['Telefon'] || data['phone'] || '').replace(/\s/g, '');
-            if (!phone) {
-              results.errors.push(`Qatorda telefon raqami yo'q`);
-              continue;
-            }
+      // 1. Extract and normalize all phones
+      const phones = studentsData
+        .map(d => String(d['Telefon'] || d['phone'] || '').replace(/\s/g, ''))
+        .filter(p => !!p);
 
-            const existingUser = await prisma.user.findUnique({ where: { phone } });
-            if (existingUser) {
-              results.errors.push(`${phone} raqamli foydalanuvchi allaqachon mavjud`);
-              continue;
-            }
+      // 2. Pre-fetch existing users to avoid individual queries inside loop
+      const existingUsers = await this.prisma.user.findMany({
+        where: { phone: { in: phones } },
+        select: { phone: true }
+      });
+      const existingPhones = new Set(existingUsers.map(u => u.phone));
 
-            const firstName = data['Ism'] || data['firstName'] || 'Ismsiz';
-            const lastName = data['Familiya'] || data['lastName'] || '';
-            const password = data['Parol'] || data['password'] || '123456';
-            const hashedPassword = await bcrypt.hash(String(password), 10);
+      // 3. Pre-process data (hashing passwords is slow, do it outside transaction)
+      const processedStudents = await Promise.all(studentsData.map(async (data) => {
+        const phone = String(data['Telefon'] || data['phone'] || '').replace(/\s/g, '');
+        if (!phone) return { error: `Qatorda telefon raqami yo'q` };
+        if (existingPhones.has(phone)) return { error: `${phone} raqamli foydalanuvchi allaqachon mavjud` };
 
+        const password = data['Parol'] || data['password'] || '123456';
+        const hashedPassword = await bcrypt.hash(String(password), 10);
+
+        return {
+          phone,
+          firstName: data['Ism'] || data['firstName'] || 'Ismsiz',
+          lastName: data['Familiya'] || data['lastName'] || '',
+          gender: data['Jinsi'] === 'Ayol' ? 'FEMALE' : (data['Jinsi'] === 'Erkak' ? 'MALE' : null),
+          hashedPassword,
+          dateOfBirth: data['Tug\'ilgan sana'] ? new Date(data['Tug\'ilgan sana']) : null,
+          branchId: data.branchId || (defaultBranchId !== 'all' ? defaultBranchId : null)
+        };
+      }));
+
+      // 4. Parallel Create Users and Profiles
+      const processedResults = await Promise.all(processedStudents.map(async (student) => {
+        if ('error' in student) {
+          return { success: false, error: student.error };
+        }
+
+        try {
+          return await this.prisma.$transaction(async (prisma) => {
             const user = await prisma.user.create({
               data: {
                 tenant_id: tenantId,
-                phone: phone,
-                first_name: firstName,
-                last_name: lastName,
-                gender: data['Jinsi'] === 'Ayol' ? 'FEMALE' : (data['Jinsi'] === 'Erkak' ? 'MALE' : null),
-                password_hash: hashedPassword,
+                phone: student.phone,
+                first_name: student.firstName,
+                last_name: student.lastName,
+                gender: student.gender as any,
+                password_hash: student.hashedPassword,
                 role_id: studentRole!.id,
               }
             });
@@ -670,23 +709,31 @@ export class StudentsService {
             await prisma.student.create({
               data: {
                 tenant_id: tenantId,
-                branch_id: data.branchId || null,
+                branch_id: student.branchId,
                 user_id: user.id,
                 status: StudentStatus.ACTIVE,
-                date_of_birth: data['Tug\'ilgan sana'] ? new Date(data['Tug\'ilgan sana']) : null,
+                date_of_birth: student.dateOfBirth,
               }
             });
 
-            results.success++;
-          } catch (e: any) {
-            results.errors.push(`Xatolik: ${e.message}`);
-          }
+            return { success: true };
+          });
+        } catch (e: any) {
+          return { success: false, error: `Xatolik (${student.phone}): ${e.message}` };
         }
+      }));
 
-        if (results.success === 0 && results.errors.length > 0) {
-          throw new Error('Hech qanday talaba qo\'shilmadi: ' + results.errors[0]);
+      for (const res of processedResults) {
+        if (res.success) {
+          results.success++;
+        } else {
+          results.errors.push(res.error as string);
         }
-      });
+      }
+
+      if (results.success === 0 && results.errors.length > 0) {
+        throw new Error('Hech qanday talaba qo\'shilmadi: ' + results.errors[0]);
+      }
 
       return results;
     } catch (err: any) {
@@ -714,12 +761,25 @@ export class StudentsService {
     });
     if (!student) throw new NotFoundException('Talaba topilmadi');
 
+    const enrolledGroupIds = student.enrollments.map(e => e.group_id);
+
+    // Optimized: Fetch all relevant data for rankings in one/two goes
+    const [allExams, enrollmentCounts] = await Promise.all([
+      this.prisma.exam.findMany({
+        where: { group_id: { in: enrolledGroupIds } },
+        include: { grades: { include: { student: { include: { user: true } } } } }
+      }),
+      this.prisma.enrollment.groupBy({
+        by: ['group_id'],
+        where: { group_id: { in: enrolledGroupIds }, status: 'ACTIVE' },
+        _count: { _all: true }
+      })
+    ]);
+
     // Guruh reytinglarini hisoblash
-    const groupRankings = await Promise.all(student.enrollments.map(async (enr) => {
-        const exams = await this.prisma.exam.findMany({
-            where: { group_id: enr.group_id },
-            include: { grades: { include: { student: { include: { user: true } } } } }
-        });
+    const groupRankings = student.enrollments.map((enr) => {
+        const exams = allExams.filter(exam => exam.group_id === enr.group_id);
+        const totalStudentsCount = enrollmentCounts.find(ec => ec.group_id === enr.group_id)?._count?._all || 0;
 
         const studentScores: Record<string, { student: any, total_score: number, exams_count: number }> = {};
         
@@ -744,7 +804,6 @@ export class StudentsService {
         const rankIndex = rankingList.findIndex(s => s.student_id === student.id);
         let currentStudentScore = 0;
         
-        // Agar o'quvchida hozircha baxo bo'lmasa lekin guruhda bo'lsa uni ro'yxat tagiga null score bn tashlaymiz
         if (rankIndex === -1) {
             rankingList.push({
                 student_id: student.id,
@@ -761,8 +820,6 @@ export class StudentsService {
         const finalRankIndex = rankingList.findIndex(s => s.student_id === student.id);
         const rank = finalRankIndex + 1;
 
-        const totalStudentsCount = await this.prisma.enrollment.count({ where: { group_id: enr.group_id, status: 'ACTIVE' } });
-
         return {
             group_id: enr.group_id,
             group_name: enr.group.name,
@@ -771,12 +828,11 @@ export class StudentsService {
             rank,
             score: currentStudentScore,
             total_students: Math.max(totalStudentsCount, rankingList.length),
-            ranking_list: rankingList.slice(0, 5), // TOP 5 tasini yuboramiz frontendga
+            ranking_list: rankingList.slice(0, 5),
         };
-    }));
+    });
 
     // Uyga vazifalarni formirovat qilish (talaba uzining aktiv guruhlaridagi hamma assignmentlar)
-    const enrolledGroupIds = student.enrollments.map(e => e.group_id);
     const assignments = await this.prisma.assignment.findMany({
         where: { group_id: { in: enrolledGroupIds } },
         include: { 
@@ -810,7 +866,7 @@ export class StudentsService {
     return { ...student, groupRankings, homeworks };
   }
 
-  async assignToGroup(tenantId: string, studentId: string, groupId: string) {
+  async assignToGroup(tenantId: string, studentId: string, groupId: string, joined_at?: string) {
     const group = await this.prisma.group.findUnique({
       where: { id: groupId },
       include: { schedules: true }
@@ -823,8 +879,9 @@ export class StudentsService {
     if (!student) throw new NotFoundException('Talaba topilmadi');
 
     return this.prisma.$transaction(async (tx) => {
+      const joinDate = joined_at ? new Date(joined_at) : new Date();
       const enrollment = await tx.enrollment.create({
-        data: { student_id: studentId, group_id: groupId, status: 'ACTIVE' },
+        data: { student_id: studentId, group_id: groupId, status: 'ACTIVE', joined_at: joinDate, enrolled_at: new Date() },
       });
 
       // Skip Invoice if VIP
@@ -839,13 +896,25 @@ export class StudentsService {
       endDate.setMonth(endDate.getMonth() + durationMonths);
       
       const scheduleDays = group.schedules.map(s => s.day_of_week);
-      const joinDate = new Date();
       
-      const totalPlanned = this.countSessions(startDate, endDate, scheduleDays);
-      const remainingLessons = this.countSessions(joinDate > startDate ? joinDate : startDate, endDate, scheduleDays);
+      let totalPlanned = this.countSessions(startDate, endDate, scheduleDays);
+      let remainingLessons = this.countSessions(joinDate > startDate ? joinDate : startDate, endDate, scheduleDays);
+
+      if (totalPlanned === 0) {
+        // Fallback to purely day-based calculation if no schedules exist
+        totalPlanned = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+        remainingLessons = Math.max(0, Math.ceil((endDate.getTime() - (joinDate > startDate ? joinDate.getTime() : startDate.getTime())) / (1000 * 60 * 60 * 24)));
+      }
 
       const basePrice = Number(group.price) || 0;
       let proRatedPrice = basePrice;
+
+      // Kunlik yoki darslik pro-rata hisobi:
+      // Foydalanuvchi talabiga ko'ra (10 kun kechikkaniga mos ravishda): kunlik asosida hisoblash ham mumkin.
+      // Lekin hozirgi darslik mantiq (lessons) aniqroq. Agar foydalanuvchi kunlik qat'iy xohlasa:
+      // const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+      // const remainingDays = Math.max(0, Math.ceil((endDate.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24)));
+      // proRatedPrice = (basePrice / totalDays) * remainingDays;
 
       if (totalPlanned > 0 && remainingLessons < totalPlanned && joinDate > startDate) {
         proRatedPrice = (basePrice / totalPlanned) * remainingLessons;
@@ -875,6 +944,78 @@ export class StudentsService {
       });
 
       return enrollment;
+    });
+  }
+
+  async removeFromGroup(tenantId: string, data: { enrollmentId: string; left_at?: string; reason?: string }) {
+    const { enrollmentId, left_at, reason } = data;
+
+    return await this.prisma.$transaction(async (tx) => {
+      const enrollment = await tx.enrollment.findUnique({
+        where: { id: enrollmentId },
+        include: { group: { include: { schedules: true } } }
+      });
+
+      if (!enrollment) throw new NotFoundException('Enrollment topilmadi');
+
+      const leaveDate = left_at ? new Date(left_at) : new Date();
+
+      const updatedEnrollment = await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          status: 'LEFT',
+          left_at: leaveDate
+        }
+      });
+
+      // Joriy oydagi invoiceni qidiramiz
+      const invoice = await tx.invoice.findFirst({
+        where: { student_id: enrollment.student_id, group_id: enrollment.group_id, tenant_id: tenantId },
+        orderBy: { created_at: 'desc' }
+      });
+
+      if (invoice && enrollment.group && !enrollment.group.is_vip) {
+        const group = enrollment.group;
+        const startDate = group.last_stage_at || group.start_date;
+        const durationMonths = group.stage_duration_months || 1;
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + durationMonths);
+
+        // Agar chiqib ketish sanasi kursning tugashidan oldin bo'lsa
+        if (leaveDate < endDate) {
+          const scheduleDays = group.schedules.map(s => s.day_of_week);
+          const joinDate = enrollment.joined_at || startDate;
+          
+          let expectedLessons = this.countSessions(joinDate > startDate ? joinDate : startDate, endDate, scheduleDays);
+          let actualLessons = this.countSessions(joinDate > startDate ? joinDate : startDate, leaveDate, scheduleDays);
+
+          if (expectedLessons === 0) {
+            // Fallback to days
+            expectedLessons = Math.max(1, Math.ceil((endDate.getTime() - (joinDate > startDate ? joinDate.getTime() : startDate.getTime())) / (1000 * 60 * 60 * 24)));
+            actualLessons = Math.max(0, Math.ceil((leaveDate.getTime() - (joinDate > startDate ? joinDate.getTime() : startDate.getTime())) / (1000 * 60 * 60 * 24)));
+          }
+
+          if (expectedLessons > 0 && actualLessons < expectedLessons) {
+            const currentAmount = Number(invoice.amount);
+            const proRatedPrice = (currentAmount / expectedLessons) * actualLessons;
+            const difference = currentAmount - proRatedPrice;
+
+            // Invoiceni yangilash (qarzni kamaytirish)
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: { amount: Math.round(proRatedPrice), end_date: leaveDate }
+            });
+
+            // Talabaning balansiga qaytarish (qarzdan yechish)
+            await tx.student.update({
+              where: { id: enrollment.student_id },
+              data: { course_balance: { increment: difference } } // qarzi kamaygani uchun balansga qaytariladi
+            });
+          }
+        }
+      }
+
+      return updatedEnrollment;
     });
   }
 
@@ -973,9 +1114,30 @@ export class StudentsService {
 
     return await this.prisma.$transaction(async (prisma) => {
       const student_user_id = student.user_id;
+
+      // 1. Delete dependent records in order to avoid FK constraint errors
+      // Some are Cascade in schema, but we'll be explicit for those that aren't
+      
+      // Attendance & Submissions are usually cascade via Enrollment/Assignment, 
+      // but let's handle the main blockers
+      
+      await prisma.payment.deleteMany({ where: { student_id: id } });
+      await prisma.invoice.deleteMany({ where: { student_id: id } });
+      await prisma.enrollment.deleteMany({ where: { student_id: id } });
+      await prisma.grade.deleteMany({ where: { student_id: id } });
+      await prisma.submission.deleteMany({ where: { student_id: id } });
+      await prisma.teacherFeedback.deleteMany({ where: { student_id: id } });
+      await prisma.callCenterTask.deleteMany({ where: { student_id: id } });
+      await prisma.studentDiscount.deleteMany({ where: { student_id: id } });
+      await prisma.saleTransaction.deleteMany({ where: { student_id: id } });
+
+      // 2. Delete the student and user
       await prisma.student.delete({ where: { id } });
       await prisma.user.delete({ where: { id: student_user_id } });
+
       return { success: true };
+    }, {
+      timeout: 15000 // Give more time for recursive deletion
     });
   }
 

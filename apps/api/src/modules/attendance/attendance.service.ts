@@ -165,9 +165,10 @@ export class AttendanceService {
     const scheduleId = group.schedules[0]?.id;
     if (!scheduleId) throw new Error('Haftaning ushbu kunida dars jadvali mavjud emas');
 
+    // Optimized: Execute all upserts in parallel
     const results = await Promise.all(
-      data.records.map(async (r) => {
-        const result = await this.prisma.attendance.upsert({
+      data.records.map(r => 
+        this.prisma.attendance.upsert({
           where: {
             enrollment_id_schedule_id_date: {
               enrollment_id: r.enrollmentId,
@@ -189,16 +190,22 @@ export class AttendanceService {
             score: r.score,
             marked_by: data.markedBy
           }
-        });
-
-        // Trigger Auto-Freeze logic if status is ABSENT
-        if (r.status === 'ABSENT') {
-          await this.handleConsecutiveAbsences(r.enrollmentId, data.tenantId, group.branch_id);
-        }
-
-        return result;
-      })
+        })
+      )
     );
+
+    // Trigger Auto-Freeze logic for all ABSENT students in parallel
+    const absentEnrollmentIds = data.records
+      .filter(r => r.status === 'ABSENT')
+      .map(r => r.enrollmentId);
+
+    if (absentEnrollmentIds.length > 0) {
+      await Promise.all(absentEnrollmentIds.map(id => 
+        this.handleConsecutiveAbsences(id, data.tenantId, group.branch_id)
+      ));
+    }
+
+    return results;
 
     return results;
   }
@@ -354,17 +361,28 @@ export class AttendanceService {
   }
 
   private async getAttendanceTrend(baseWhere: any, start: Date, end: Date) {
+    // Optimized: Use groupBy for trend calculation
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        ...baseWhere,
+        date: { gte: start, lte: end }
+      },
+      select: { date: true, status: true }
+    });
+
     const diff = end.getTime() - start.getTime();
     const segments = 8;
     const step = diff / segments;
     const trend: any[] = [];
+
     for (let i = 0; i < segments; i++) {
         const s = new Date(start.getTime() + (i * step));
         const e = new Date(start.getTime() + ((i + 1) * step));
-        const [keldi, kelmadi] = await Promise.all([
-          this.prisma.attendance.count({ where: { ...baseWhere, date: { gte: s, lte: e }, status: { in: ['PRESENT', 'LATE'] } } }),
-          this.prisma.attendance.count({ where: { ...baseWhere, date: { gte: s, lte: e }, status: 'ABSENT' } }),
-        ]);
+        
+        const periodRecords = attendances.filter(a => a.date >= s && a.date < e);
+        const keldi = periodRecords.filter(a => ['PRESENT', 'LATE'].includes(a.status)).length;
+        const kelmadi = periodRecords.filter(a => a.status === 'ABSENT').length;
+
         trend.push({ 
           week: s.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' }), 
           keldi, 

@@ -235,7 +235,10 @@ export default function StudentsDatabasePage() {
 
   const handleImport = async (data: any[]) => {
     try {
-      await api.post(`${API_PATH}/bulk`, { students: data });
+      await api.post(`${API_PATH}/bulk`, { 
+        branchId: branchId || 'all',
+        students: data 
+      });
       fetchStudents();
       fetchAnalytics();
     } catch (err) {

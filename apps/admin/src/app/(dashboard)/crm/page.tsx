@@ -219,7 +219,10 @@ export default function CrmBoardPage() {
 
   const handleImportLeads = async (data: any[]) => {
     try {
-      await api.post('/crm/leads/bulk', { leads: data });
+      await api.post('/crm/leads/bulk', { 
+        branchId: branchId || 'all',
+        leads: data 
+      });
       fetchData();
     } catch (err) {
       throw err;

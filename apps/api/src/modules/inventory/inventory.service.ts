@@ -102,35 +102,36 @@ export class InventoryService {
     const { branchId, products } = data;
 
     return await this.prisma.$transaction(async (prisma) => {
-      const errors = [];
-      let successCount = 0;
-
-      // Fetch existing categories to match by name
+      // 1. Fetch existing categories
       const categories = await prisma.productCategory.findMany({
         where: { tenant_id: tenantId }
       });
 
-      for (const p of products) {
-        try {
-          // 1. Find or Create Category
-          let categoryId = null;
-          if (p.category) {
-            let category = categories.find(c => c.name.toLowerCase() === p.category.toLowerCase());
-            if (!category) {
-              category = await prisma.productCategory.create({
-                data: { tenant_id: tenantId, name: p.category }
-              });
-              categories.push(category); // Add to local cache
-            }
-            categoryId = category.id;
-          }
+      // 2. Identify unique new categories
+      const newCategoryNames = [...new Set(products
+        .map(p => p.category)
+        .filter(cat => cat && !categories.some(c => c.name.toLowerCase() === cat.toLowerCase()))
+      )];
 
-          // 2. Create Product
+      // 3. Create missing categories sequentially to avoid race conditions in transaction if needed, 
+      // but here we can do it before products creation.
+      for (const catName of newCategoryNames) {
+        const newCat = await prisma.productCategory.create({
+          data: { tenant_id: tenantId, name: catName }
+        });
+        categories.push(newCat);
+      }
+
+      // 4. Parallel Create Products
+      const processedProducts = await Promise.all(products.map(async (p) => {
+        try {
+          const category = p.category ? categories.find(c => c.name.toLowerCase() === p.category.toLowerCase()) : null;
+          
           await prisma.product.create({
             data: {
               tenant_id: tenantId,
               branch_id: branchId === 'all' ? null : branchId,
-              category_id: categoryId,
+              category_id: category?.id || null,
               name: p.name,
               stock: Number(p.stock) || 0,
               price: Number(p.price) || 0,
@@ -139,11 +140,14 @@ export class InventoryService {
               is_top: p.isTop || false
             }
           });
-          successCount++;
+          return { success: true };
         } catch (e: any) {
-          errors.push(`Xatolik (${p.name}): ${e.message}`);
+          return { success: false, error: `Xatolik (${p.name}): ${e.message}` };
         }
-      }
+      }));
+
+      const successCount = processedProducts.filter(r => r.success).length;
+      const errors = processedProducts.filter(r => !r.success).map(r => r.error);
 
       return {
         success: true,

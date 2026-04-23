@@ -51,6 +51,8 @@ export default function TeachersDatabasePage() {
   const [archiveReasons, setArchiveReasons] = useState<any[]>([]);
   const [specializations, setSpecializations] = useState<any[]>([]);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTeacherId, setDeleteTeacherId] = useState('');
 
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
@@ -192,6 +194,17 @@ export default function TeachersDatabasePage() {
     finally { setIsArchiving(false); }
   };
 
+  const handleDeleteTeacher = async (reassignmentData?: any) => {
+    try {
+      await api.delete(`/teachers/${deleteTeacherId}`, { data: { reassignmentData } });
+      showToast("O'qituvchi o'chirildi");
+      setIsDeleteModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || "O'chirishda xatolik", 'error');
+    }
+  };
+
   const handleSaveTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -287,33 +300,44 @@ export default function TeachersDatabasePage() {
           });
           setIsModalOpen(true);
         }}
-        onDelete={async (id) => { 
-          const isConfirmed = await confirm({
-            title: "O'qituvchini o'chirish",
-            message: "Ushbu o'qituvchini o'chirishni tasdiqlaysizmi?",
-            type: "danger"
-          });
-          if(isConfirmed) { await api.delete(`/teachers/${id}`); fetchData(); } 
+        onDelete={(id) => {
+          setDeleteTeacherId(id);
+          setIsDeleteModalOpen(true);
         }}
         onArchive={(id) => { setArchiveTeacherId(id); setIsArchiveModalOpen(true); }}
       />
 
       {/* 🗂 Modals */}
       <TeacherModals 
-        isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen}
-        isEditMode={isEditMode} formData={formData} setFormData={setFormData}
-        isSubmitting={isSubmitting} onSave={handleSaveTeacher} branches={branches}
-        isArchiveModalOpen={isArchiveModalOpen} setIsArchiveModalOpen={setIsArchiveModalOpen}
-        archiveReasons={archiveReasons} selectedReason={selectedReason} 
-        setSelectedReason={setSelectedReason} customReason={customReason} 
-        setCustomReason={setCustomReason} isArchiving={isArchiving} 
-        onArchive={handleArchiveTeacher} onAddArchiveReason={async () => {
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        isEditMode={isEditMode}
+        formData={formData}
+        setFormData={setFormData}
+        isSubmitting={isSubmitting}
+        onSave={handleSaveTeacher}
+        branches={branches}
+        isArchiveModalOpen={isArchiveModalOpen}
+        setIsArchiveModalOpen={setIsArchiveModalOpen}
+        archiveReasons={archiveReasons}
+        selectedReason={selectedReason}
+        setSelectedReason={setSelectedReason}
+        customReason={customReason}
+        setCustomReason={setCustomReason}
+        isArchiving={isArchiving}
+        onArchive={handleArchiveTeacher}
+        onAddArchiveReason={async () => {
           await api.post('/teachers/archive-reasons', { name: customReason });
           fetchArchiveReasons();
           setSelectedReason(customReason);
         }}
         specializations={specializations}
         onAddSpecialization={handleAddSpecialization}
+        isDeleteModalOpen={isDeleteModalOpen}
+        setIsDeleteModalOpen={setIsDeleteModalOpen}
+        deleteTeacherId={deleteTeacherId}
+        onDelete={handleDeleteTeacher}
+        teachers={teachers}
       />
 
     </div>

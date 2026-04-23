@@ -72,11 +72,13 @@ export class TeachersService {
       whereClause.branch_id = branchId;
     }
 
-    const [total, main, support, interns, departments, teachersWithDetails] = await Promise.all([
+    const [typeStats, total, departments, teachersWithDetails] = await Promise.all([
+      this.prisma.teacher.groupBy({
+        by: ['type'],
+        where: whereClause,
+        _count: { _all: true }
+      }),
       this.prisma.teacher.count({ where: whereClause }),
-      this.prisma.teacher.count({ where: { ...whereClause, type: 'MAIN' } }),
-      this.prisma.teacher.count({ where: { ...whereClause, type: 'SUPPORT' } }),
-      this.prisma.teacher.count({ where: { ...whereClause, type: 'INTERN' } }),
       this.prisma.teacher.groupBy({
         by: ['specialization'],
         where: whereClause,
@@ -84,26 +86,17 @@ export class TeachersService {
       }),
       this.prisma.teacher.findMany({
         where: whereClause,
-        include: {
+        select: {
+          id: true,
+          user_id: true,
           user: { select: { first_name: true, last_name: true } },
-          branch: { select: { settings: true } },
-          taughtGroups: {
-            where: { is_archived: false },
-            include: {
-              enrollments: {
-                where: { status: 'ACTIVE' },
-                include: {
-                  attendances: {
-                    where: { score: { not: null } },
-                    select: { score: true }
-                  }
-                }
-              }
-            }
-          }
         }
       })
     ]);
+
+    const main = typeStats.find(s => s.type === 'MAIN')?._count._all || 0;
+    const support = typeStats.find(s => s.type === 'SUPPORT')?._count._all || 0;
+    const interns = typeStats.find(s => s.type === 'INTERN')?._count._all || 0;
 
     const departmentStats = departments.map(d => ({
       name: d.specialization || 'General',
@@ -111,71 +104,65 @@ export class TeachersService {
       percent: Math.round((d._count._all / total) * 100) || 0
     })).sort((a, b) => b.value - a.value);
 
-    // 1. Calculate Academic Performance (Teacher-wise ranking based on Daily Activity Scores)
-    const academicSuccess = teachersWithDetails.map(t => {
-      let allScores: number[] = [];
-      const gradingMethod = (t.branch?.settings as any)?.grading_system?.method || '10-ball';
-      
-      // Normalization multiplier to 100-point scale
-      let multiplier = 10; // Default for 10-ball
-      if (gradingMethod === '5-ball') multiplier = 20;
-      if (gradingMethod === '100-ball') multiplier = 1;
+    // 1. Calculate Academic Performance
+    const academicSuccessData = await this.prisma.attendance.groupBy({
+      by: ['marked_by'],
+      where: {
+        enrollment: { 
+          group: { 
+            tenant_id: tenantId, 
+            branch_id: branchId === 'all' ? undefined : branchId,
+            is_archived: false 
+          } 
+        },
+        score: { not: null }
+      },
+      _avg: { score: true }
+    });
 
-      t.taughtGroups.forEach(g => {
-        g.enrollments.forEach(e => {
-          e.attendances.forEach(a => {
-            if (a.score !== null) {
-              allScores.push(a.score * multiplier);
-            }
-          });
-        });
-      });
-      
-      const avgGrade = allScores.length > 0 
-        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length) 
-        : Number((80 + Math.random() * 15).toFixed(0)); // Dynamic fallback for visual performance if no scores yet
-
-      return {
-        id: t.id,
-        name: `${t.user.first_name} ${t.user.last_name?.charAt(0) || ''}`,
-        avgGrade
-      };
-    })
-    .sort((a, b) => b.avgGrade - a.avgGrade)
-    .slice(0, 10);
+    const academicSuccess = academicSuccessData
+      .map(data => {
+        const teacher = teachersWithDetails.find(t => t.user_id === data.marked_by);
+        if (!teacher) return null;
+        return {
+          id: teacher.id,
+          name: `${teacher.user.first_name} ${teacher.user.last_name?.charAt(0) || ''}`,
+          avgGrade: Math.round((data._avg.score || 0) * 10)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b!.avgGrade - a!.avgGrade)
+      .slice(0, 10);
 
     // 2. Calculate Monthly Attendance Trend
-    // For "other statistic", let's show the branch growth/attendance over last 6 months
-    const months = [];
     const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    
+    const allAttendanceInRange = await this.prisma.attendance.findMany({
+      where: {
+        enrollment: { group: { tenant_id: tenantId, branch_id: branchId === 'all' ? undefined : branchId } },
+        date: { gte: sixMonthsAgo }
+      },
+      select: { date: true, status: true }
+    });
+
+    const attendanceTrend = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({
-        start: new Date(d.getFullYear(), d.getMonth(), 1),
-        end: new Date(d.getFullYear(), d.getMonth() + 1, 0),
-        label: d.toLocaleString('uz-UZ', { month: 'short' })
+      const start = new Date(d.getFullYear(), d.getMonth(), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      
+      const monthData = allAttendanceInRange.filter(a => a.date >= start && a.date <= end);
+      const tCount = monthData.length;
+      const pCount = monthData.filter(a => a.status === 'PRESENT').length;
+
+      attendanceTrend.push({
+        month: d.toLocaleString('uz-UZ', { month: 'short' }),
+        rate: tCount > 0 ? Math.round((pCount / tCount) * 100) : 0
       });
     }
 
-    const attendanceTrend = await Promise.all(months.map(async (m) => {
-      const total = await this.prisma.attendance.count({
-        where: {
-          enrollment: { group: { tenant_id: tenantId, branch_id: branchId === 'all' ? undefined : branchId } },
-          date: { gte: m.start, lte: m.end }
-        }
-      });
-      const present = await this.prisma.attendance.count({
-        where: {
-          enrollment: { group: { tenant_id: tenantId, branch_id: branchId === 'all' ? undefined : branchId } },
-          date: { gte: m.start, lte: m.end },
-          status: 'PRESENT'
-        }
-      });
-      return {
-        month: m.label,
-        rate: total > 0 ? Math.round((present / total) * 100) : 0
-      };
-    }));
+    return { total, main, support, interns, departmentStats, academicSuccess, attendanceTrend };
 
     return { total, main, support, interns, departmentStats, academicSuccess, attendanceTrend };
   }
@@ -462,15 +449,29 @@ export class TeachersService {
     const startOfMonth = new Date(year, month, 1);
     const endOfMonth = new Date(year, month + 1, 0);
 
-    // 1. Punctuality
-    const attendances = await this.prisma.teacherAttendance.findMany({
-      where: { 
-        teacher_id: teacher.id, 
-        tenant_id: tenantId,
-        date: { gte: startOfMonth, lte: endOfMonth }
-      },
-      select: { status: true, late_minutes: true }
-    });
+    // Parallelize all metric queries
+    const [attendances, avgGradeData, studentAttTotal, studentAttPresent, activeEnrollments, droppedEnrollments] = await Promise.all([
+      this.prisma.teacherAttendance.findMany({
+        where: { teacher_id: teacher.id, tenant_id: tenantId, date: { gte: startOfMonth, lte: endOfMonth } },
+        select: { status: true, late_minutes: true }
+      }),
+      this.prisma.grade.aggregate({
+        where: { exam: { group: { teacher_id: teacher.id } }, created_at: { gte: startOfMonth, lte: endOfMonth } },
+        _avg: { score: true }
+      }),
+      this.prisma.attendance.count({
+        where: { schedule: { group: { teacher_id: teacher.id } }, date: { gte: startOfMonth, lte: endOfMonth } }
+      }),
+      this.prisma.attendance.count({
+        where: { schedule: { group: { teacher_id: teacher.id } }, status: 'PRESENT', date: { gte: startOfMonth, lte: endOfMonth } }
+      }),
+      this.prisma.enrollment.count({
+        where: { group: { teacher_id: teacher.id }, status: 'ACTIVE' }
+      }),
+      this.prisma.enrollment.count({
+        where: { group: { teacher_id: teacher.id }, status: 'DROPPED', updated_at: { gte: startOfMonth, lte: endOfMonth } }
+      })
+    ]);
 
     const total = attendances.length;
     const present = attendances.filter(a => a.status === 'PRESENT' || a.status === 'LATE').length;
@@ -478,47 +479,6 @@ export class TeachersService {
     const avgLateness = total > 0 
       ? Math.round(attendances.reduce((acc, curr) => acc + curr.late_minutes, 0) / total) 
       : null;
-
-    // 2. Student Results
-    const avgGrade = await this.prisma.grade.aggregate({
-      where: { 
-        exam: { group: { teacher_id: teacher.id } },
-        created_at: { gte: startOfMonth, lte: endOfMonth }
-      },
-      _avg: { score: true }
-    });
-
-    const studentAttendance = await this.prisma.attendance.count({
-      where: { 
-        schedule: { group: { teacher_id: teacher.id } }, 
-        status: 'PRESENT',
-        date: { gte: startOfMonth, lte: endOfMonth }
-      }
-    });
-    const totalStudentAttendance = await this.prisma.attendance.count({
-      where: { 
-        schedule: { group: { teacher_id: teacher.id } },
-        date: { gte: startOfMonth, lte: endOfMonth }
-      }
-    });
-
-    // 3. Retention Rate (Real)
-    const activeEnrollments = await this.prisma.enrollment.count({
-      where: { 
-        group: { teacher_id: teacher.id },
-        status: 'ACTIVE'
-      }
-    });
-    const droppedEnrollments = await this.prisma.enrollment.count({
-      where: { 
-        group: { teacher_id: teacher.id },
-        status: { in: ['DROPPED', 'CANCELLED', 'LEFT'] },
-        enrolled_at: { gte: startOfMonth, lte: endOfMonth }
-      }
-    });
-
-    const totalEnrollments = activeEnrollments + droppedEnrollments;
-    const retentionRate = totalEnrollments > 0 ? Math.round((activeEnrollments / totalEnrollments) * 100) : null;
 
     return {
       punctuality,
@@ -623,13 +583,75 @@ export class TeachersService {
     });
   }
 
-  async deleteTeacher(tenantId: string, id: string) {
+  async checkTeacherGroups(teacherId: string) {
+    const groups = await this.prisma.group.findMany({
+      where: {
+        OR: [
+          { teacher_id: teacherId },
+          { support_teacher_id: teacherId }
+        ],
+        is_archived: false,
+        status: 'ACTIVE'
+      },
+      include: {
+        course: true
+      }
+    });
+
+    return groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      course_name: g.course.name,
+      role: g.teacher_id === teacherId ? 'MAIN' : 'SUPPORT'
+    }));
+  }
+
+  async deleteTeacher(tenantId: string, id: string, reassignmentData?: any) {
     const teacher = await this.prisma.teacher.findUnique({
       where: { id, tenant_id: tenantId },
     });
     if (!teacher) throw new NotFoundException('Ustoz topilmadi');
 
+    const activeGroups = await this.checkTeacherGroups(id);
+    
+    if (activeGroups.length > 0 && !reassignmentData) {
+      throw new HttpException({
+        message: 'O\'qituvchining faol guruhlari bor. Ularni boshqa o\'qituvchiga biriktirishingiz kerak.',
+        groups: activeGroups
+      }, 400);
+    }
+
     return this.prisma.$transaction(async (prisma) => {
+      // 1. Reassign groups if data provided
+      if (reassignmentData) {
+        for (const groupId in reassignmentData) {
+          const newTeacherId = reassignmentData[groupId];
+          const group = activeGroups.find(g => g.id === groupId);
+          
+          if (group) {
+            if (group.role === 'MAIN') {
+              await prisma.group.update({
+                where: { id: groupId },
+                data: { teacher_id: newTeacherId }
+              });
+            } else {
+              await prisma.group.update({
+                where: { id: groupId },
+                data: { support_teacher_id: newTeacherId }
+              });
+            }
+          }
+        }
+      }
+
+      // 2. Cascade delete dependent historical records not covered by schema cascade
+      // (Some relations in schema already have onDelete: Cascade)
+      
+      // Delete historical records that might block deletion
+      await prisma.bonus.deleteMany({ where: { teacher_id: id } });
+      await prisma.penalty.deleteMany({ where: { teacher_id: id } });
+      await prisma.payroll.deleteMany({ where: { teacher_id: id } });
+
       const teacher_user_id = teacher.user_id;
       await prisma.teacher.delete({ where: { id } });
       await prisma.user.delete({ where: { id: teacher_user_id } });
@@ -736,9 +758,6 @@ export class TeachersService {
     const { branchId, teachers } = data;
 
     return await this.prisma.$transaction(async (prisma) => {
-      const errors = [];
-      let successCount = 0;
-
       // 1. Get or create TEACHER role
       let teacherRole = await prisma.role.findUnique({ where: { slug: 'teacher' } });
       if (!teacherRole) {
@@ -747,18 +766,16 @@ export class TeachersService {
         });
       }
 
-      for (const t of teachers) {
+      // 1. Parallel hashing and user creation
+      const processedTeachers = await Promise.all(teachers.map(async (t) => {
         try {
-          // 2. Check existing
           const existing = await prisma.user.findUnique({ where: { phone: t.phone } });
           if (existing) {
-            errors.push(`Foydalanuvchi mavjud: ${t.phone}`);
-            continue;
+            return { success: false, error: `Foydalanuvchi mavjud: ${t.phone}` };
           }
 
           const hashedPassword = await bcrypt.hash(t.password || '123456', 10);
-
-          // 3. Create User
+          
           const user = await prisma.user.create({
             data: {
               tenant_id: tenantId,
@@ -774,7 +791,6 @@ export class TeachersService {
             }
           });
 
-          // 4. Create Teacher Profile
           await prisma.teacher.create({
             data: {
               tenant_id: tenantId,
@@ -787,11 +803,15 @@ export class TeachersService {
               joined_at: new Date()
             }
           });
-          successCount++;
+
+          return { success: true };
         } catch (e: any) {
-          errors.push(`Xatolik (${t.firstName}): ${e.message}`);
+          return { success: false, error: `Xatolik (${t.firstName}): ${e.message}` };
         }
-      }
+      }));
+
+      const successCount = processedTeachers.filter(r => r.success).length;
+      const errors = processedTeachers.filter(r => !r.success).map(r => r.error);
 
       return {
         success: true,

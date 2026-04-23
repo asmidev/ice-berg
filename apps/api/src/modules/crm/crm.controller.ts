@@ -20,11 +20,11 @@ export class CrmController {
 
   @Post('leads/bulk')
   @SetPermissions('leads.create')
-  async bulkCreateLeads(@Req() req: any, @Body() body: { leads: any[] }) {
+  async bulkCreateLeads(@Req() req: any, @Body() body: { branchId: string, leads: any[] }) {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) throw new Error('Unauthorized');
-      return await this.crmService.bulkCreateLeads(tenantId, body.leads);
+      return await this.crmService.bulkCreateLeads(tenantId, body);
     } catch (e: any) {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }

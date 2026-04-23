@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { Settings2, User, MoreHorizontal, Phone, Mail } from 'lucide-react';
+import { Settings2, User, MoreHorizontal, Phone, Mail, Trash2, Archive } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface TeacherGridProps {
@@ -13,7 +13,7 @@ interface TeacherGridProps {
   onArchive: (id: string) => void;
 }
 
-export const TeacherGrid = ({ teachers, loading, onEdit }: TeacherGridProps) => {
+export const TeacherGrid = ({ teachers, loading, onEdit, onDelete, onArchive }: TeacherGridProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const branchId = searchParams.get('branch_id') || 'all';

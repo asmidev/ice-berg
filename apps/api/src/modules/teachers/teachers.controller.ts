@@ -141,13 +141,26 @@ export class TeachersController {
     }
   }
 
-  @Delete(':id')
-  @SetPermissions('teachers.delete')
-  async deleteTeacher(@Req() req: any, @Param('id') id: string) {
+  @Get(':id/check-groups')
+  @SetPermissions('teachers.view')
+  async checkGroups(@Param('id') id: string) {
     try {
-      return await this.teachersService.deleteTeacher(req.user?.tenantId || 'test-tenant-123', id);
+      return await this.teachersService.checkTeacherGroups(id);
     } catch (e: any) {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Delete(':id')
+  @SetPermissions('teachers.delete')
+  async deleteTeacher(@Req() req: any, @Param('id') id: string, @Body() body?: any) {
+    try {
+      return await this.teachersService.deleteTeacher(req.user?.tenantId || 'test-tenant-123', id, body?.reassignmentData);
+    } catch (e: any) {
+      throw new HttpException(
+        e.response || { message: e.message || 'Xatolik yuz berdi' }, 
+        e.status || HttpStatus.INTERNAL_SERVER_ERROR
+      );
     }
   }
 

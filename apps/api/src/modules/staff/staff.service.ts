@@ -186,22 +186,15 @@ export class StaffService {
     const { branchId, staff } = data;
 
     return await this.prisma.$transaction(async (prisma) => {
-      const errors = [];
-      let successCount = 0;
-
-      // Fetch roles for matching
       const roles = await prisma.role.findMany();
 
-      for (const s of staff) {
+      const processedStaff = await Promise.all(staff.map(async (s) => {
         try {
-          // 1. Check if user exists
           const existing = await prisma.user.findUnique({ where: { phone: s.phone } });
           if (existing) {
-            errors.push(`Foydalanuvchi mavjud: ${s.phone}`);
-            continue;
+            return { success: false, error: `Foydalanuvchi mavjud: ${s.phone}` };
           }
 
-          // 2. Match Role
           let roleId = null;
           if (s.role) {
             const role = roles.find(r => r.name.toLowerCase() === s.role.toLowerCase() || r.slug.toLowerCase() === s.role.toLowerCase());
@@ -209,9 +202,7 @@ export class StaffService {
           }
 
           if (!roleId) {
-             // Default to STAFF if not found? No, better skip or error.
-             errors.push(`Rol topilmadi (${s.role}): ${s.first_name}`);
-             continue;
+             return { success: false, error: `Rol topilmadi (${s.role}): ${s.first_name}` };
           }
 
           const hashedPassword = await bcrypt.hash(s.password || '123456', 10);
@@ -238,11 +229,15 @@ export class StaffService {
               branch_id: branchId !== 'all' ? branchId : null
             }
           });
-          successCount++;
+
+          return { success: true };
         } catch (e: any) {
-          errors.push(`Xatolik (${s.first_name}): ${e.message}`);
+          return { success: false, error: `Xatolik (${s.first_name}): ${e.message}` };
         }
-      }
+      }));
+
+      const successCount = processedStaff.filter(r => r.success).length;
+      const errors = processedStaff.filter(r => !r.success).map(r => r.error);
 
       return {
         success: true,

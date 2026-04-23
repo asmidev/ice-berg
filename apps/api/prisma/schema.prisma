@@ -105,6 +105,8 @@ model Branch {
   penalties         Penalty[]
   staffAttendances  StaffAttendance[]
   promotions        Promotion[]
+
+  @@index([tenant_id])
 }
 
 model Role {
@@ -144,6 +146,9 @@ model User {
   tenant              Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   branches            Branch[]           @relation("BranchToUser")
   promotions          Promotion[]
+
+  @@index([tenant_id])
+  @@index([phone])
 }
 
 model Teacher {
@@ -172,6 +177,10 @@ model Teacher {
   performance     TeacherPerformance?
   penalties       Penalty[]
   attendances     TeacherAttendance[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([is_archived])
 }
 
 model TeacherAttendance {
@@ -263,6 +272,10 @@ model Staff {
   tenant          Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   user            User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   attendances     StaffAttendance[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([is_archived])
 }
 
 model Student {
@@ -298,6 +311,11 @@ model Student {
   submissions      Submission[]
   teacherFeedbacks TeacherFeedback[]
   callCenterTasks  CallCenterTask[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([is_archived])
+  @@index([status])
 }
 
 model LeadStage {
@@ -364,6 +382,11 @@ model Lead {
   course         Course?     @relation(fields: [course_id], references: [id])
   promotion      Promotion?  @relation(fields: [promotion_id], references: [id])
   callCenterTasks CallCenterTask[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([status])
+  @@index([phone])
 }
 
 model Promotion {
@@ -462,6 +485,11 @@ model Group {
   penalties             Penalty[]
   revenueSegments       RevenueSegment[]
   payrolls              Payroll[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([is_archived])
+  @@index([status])
 }
 
 model Room {
@@ -590,6 +618,12 @@ model Payment {
   category_id    String?
   category       PaymentCategory? @relation(fields: [category_id], references: [id])
   revenueSegments RevenueSegment[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([student_id])
+  @@index([is_archived])
+  @@index([created_at])
 }
 
 model PaymentCategory {
@@ -623,6 +657,11 @@ model Invoice {
   start_date  DateTime?
   end_date    DateTime?
   payments    Payment[]
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([student_id])
+  @@index([status])
 }
 
 model Expense {
@@ -653,6 +692,11 @@ model Expense {
   responsible    User?            @relation("ResponsibleUser", fields: [responsible_id], references: [id])
   staff          User?            @relation("StaffUser", fields: [staff_id], references: [id])
   tenant         Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([branch_id])
+  @@index([is_archived])
+  @@index([date])
 }
 
 model Department {

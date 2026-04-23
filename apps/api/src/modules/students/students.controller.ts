@@ -114,7 +114,7 @@ export class StudentsController {
     try {
       const tenantId = req.user?.tenantId;
       if (!tenantId) throw new Error('Unauthorized');
-      return await this.studentsService.bulkCreateStudents(tenantId, body.students);
+      return await this.studentsService.bulkCreateStudents(tenantId, body);
     } catch (e: any) {
       throw new HttpException({ message: e.message || 'Xatolik yuz berdi' }, e.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }

@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MoneyInput } from '@/components/ui/money-input';
-import { X, Camera, Plus, ShieldAlert } from 'lucide-react';
+import { X, Camera, Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import api from '@/lib/api';
 
 interface TeacherModalsProps {
   isModalOpen: boolean;
@@ -34,6 +35,13 @@ interface TeacherModalsProps {
   // Specialization
   specializations: any[];
   onAddSpecialization: (name: string) => void;
+
+  // Delete Modal
+  isDeleteModalOpen: boolean;
+  setIsDeleteModalOpen: (v: boolean) => void;
+  deleteTeacherId: string;
+  onDelete: (reassignmentData?: any) => void;
+  teachers: any[];
 }
 
 const compressImageToBase64 = (file: File): Promise<string> => {
@@ -73,7 +81,8 @@ const compressImageToBase64 = (file: File): Promise<string> => {
 export const TeacherModals = ({
   isModalOpen, setIsModalOpen, isEditMode, formData, setFormData, isSubmitting, onSave, branches,
   isArchiveModalOpen, setIsArchiveModalOpen, archiveReasons, selectedReason, setSelectedReason, customReason, setCustomReason, isArchiving, onArchive, onAddArchiveReason,
-  specializations, onAddSpecialization
+  specializations, onAddSpecialization,
+  isDeleteModalOpen, setIsDeleteModalOpen, deleteTeacherId, onDelete, teachers
 }: TeacherModalsProps) => {
   const [newSpec, setNewSpec] = React.useState('');
   const [showAddSpec, setShowAddSpec] = React.useState(false);
@@ -355,6 +364,133 @@ export const TeacherModals = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      <DeleteTeacherDialog 
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        teacherId={deleteTeacherId}
+        onConfirm={onDelete}
+        allTeachers={teachers}
+      />
     </>
+  );
+};
+const DeleteTeacherDialog = ({ isOpen, onClose, teacherId, onConfirm, allTeachers }: any) => {
+  const [groups, setGroups] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [reassignments, setReassignments] = React.useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && teacherId) {
+      fetchGroups();
+    }
+  }, [isOpen, teacherId]);
+
+  const fetchGroups = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/teachers/${teacherId}/check-groups`);
+      setGroups(res.data);
+      // Initialize reassignments with empty strings
+      const initial: any = {};
+      res.data.forEach((g: any) => initial[g.id] = '');
+      setReassignments(initial);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    // Check if all groups have a new teacher assigned
+    const unassigned = groups.filter(g => !reassignments[g.id]);
+    if (unassigned.length > 0) {
+      alert("Iltimos, barcha guruhlar uchun yangi o'qituvchi tanlang.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onConfirm(groups.length > 0 ? reassignments : undefined);
+      onClose();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const otherTeachers = allTeachers.filter((t: any) => t.id !== teacherId);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] rounded-md p-0 overflow-hidden border-none shadow-2xl bg-white outline-none">
+        <div className="p-8 space-y-6">
+          <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-2">
+            <Trash2 className="w-8 h-8 text-rose-500" />
+          </div>
+          <div className="text-center space-y-1">
+            <DialogTitle className="text-xl font-black text-zinc-900 tracking-tight">O'qituvchini o'chirish</DialogTitle>
+            <p className="text-[13px] font-medium text-zinc-400">
+              {groups.length > 0 
+                ? `Ushbu o'qituvchida ${groups.length} ta faol guruh bor. O'chirishdan oldin ularni boshqa o'qituvchilarga biriktirishingiz shart.`
+                : "Ushbu o'qituvchini tizimdan butunlay o'chirishni tasdiqlaysizmi?"}
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="py-10 text-center animate-pulse text-zinc-300 font-bold">Guruhlar tekshirilmoqda...</div>
+          ) : groups.length > 0 && (
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {groups.map(g => (
+                <div key={g.id} className="p-4 bg-zinc-50 rounded-xl border border-zinc-100 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-[12px] font-black text-zinc-800 uppercase">{g.name}</div>
+                      <div className="text-[10px] text-zinc-400 font-bold">{g.course_name}</div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${g.role === 'MAIN' ? 'bg-cyan-100 text-cyan-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {g.role === 'MAIN' ? 'Asosiy' : 'Yordamchi'}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-bold text-zinc-400 uppercase ml-1">Yangi o'qituvchi</Label>
+                    <Select 
+                      value={reassignments[g.id]} 
+                      onValueChange={val => setReassignments({...reassignments, [g.id]: val})}
+                    >
+                      <SelectTrigger className="h-10 text-xs font-bold bg-white">
+                        <SelectValue placeholder="Tanlang..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {otherTeachers.map((t: any) => (
+                          <SelectItem key={t.id} value={t.id} className="text-xs font-bold">
+                            {t.user?.first_name} {t.user?.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <Button onClick={onClose} variant="ghost" className="flex-1 h-12 font-bold text-zinc-400">Bekor qilish</Button>
+            <Button 
+              disabled={isSubmitting || (groups.length > 0 && groups.some(g => !reassignments[g.id]))} 
+              onClick={handleConfirm} 
+              className="flex-1 h-12 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-md shadow-lg shadow-rose-100 active:scale-95 transition-all"
+            >
+              {isSubmitting ? 'O\'chirilmoqda...' : 'Tasdiqlash'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -42,8 +42,10 @@ export class CrmService {
     }
   }
 
-  async bulkCreateLeads(tenantId: string, leadsData: any[]) {
+  async bulkCreateLeads(tenantId: string, payload: { branchId: string, leads: any[] }) {
     try {
+      const { branchId, leads: leadsData } = payload;
+      
       const defaultStage = await this.prisma.leadStage.findFirst({
         where: { tenant_id: tenantId },
         orderBy: { order: 'asc' }
@@ -68,7 +70,7 @@ export class CrmService {
             await prisma.lead.create({
               data: {
                 tenant_id: tenantId,
-                branch_id: data.branchId || null,
+                branch_id: branchId === 'all' ? null : branchId,
                 name,
                 phone,
                 notes: data['Izoh'] || data['notes'] || '',
